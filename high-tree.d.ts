@@ -20,6 +20,7 @@ export default class VirtualTree {
     setData(newData: TreeNode[]): void;
     getData(): TreeNode[];
     findNodeById(nodeId: string): TreeNode | null;
+    terminateWorker(): void;
 }
 
 export interface VirtualTreeOptions {
@@ -39,6 +40,10 @@ export interface VirtualTreeOptions {
     draggable?: boolean; // default: false
     enableDefaultDragDrop?: boolean; // default: true - automatically move nodes on drop
     filter?: FilterFunction | null; // default: null
+
+    // Worker options
+    useWorker?: boolean; // default: true - use Web Worker for CPU-intensive operations
+    workerPath?: string | null; // default: null - custom worker file path (auto-detected if not provided)
 
     // Callbacks
     onLoadData?: LoadDataCallback | null;

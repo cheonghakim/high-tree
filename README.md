@@ -9,6 +9,7 @@ A lightweight, high-performance virtual tree component for JavaScript with compr
 ## ✨ Features
 
 - 🚀 **Virtual Scrolling** - Renders only visible nodes for blazing fast performance with 10,000+ nodes
+- ⚡ **Web Worker Support** - Offloads CPU-intensive operations to background thread for smooth UI (NEW!)
 - 🔍 **Built-in Search** - Real-time search with instant highlighting
 - ⚡ **Lazy Loading** - Load child nodes on demand to optimize initial load time
 - 🎯 **Event Callbacks** - Complete control with onClick, onExpand, onCollapse, onSelect, onCheck, onDrop, onContextMenu
@@ -107,6 +108,8 @@ new VirtualTree(element, options)
 | `draggable` | `boolean` | `false` | Enable drag and drop |
 | `enableDefaultDragDrop` | `boolean` | `true` | Automatically move nodes on drop (requires `draggable: true`) |
 | `filter` | `Function` | `null` | Custom filter function |
+| `useWorker` | `boolean` | `true` | Use Web Worker for CPU-intensive operations |
+| `workerPath` | `string` | `null` | Custom worker file path (auto-detected if not provided) |
 | `onLoadData` | `Function` | `null` | Async function to load children |
 | `onClick` | `Function` | `null` | Fires when node is clicked |
 | `onExpand` | `Function` | `null` | Fires when node is expanded |

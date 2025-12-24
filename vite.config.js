@@ -33,6 +33,14 @@ export default defineConfig({
                 exports: 'named',
                 globals: {}
             }
-        }
+        },
+        // Copy worker file to dist
+        copyPublicDir: false
+    },
+    // Ensure worker file is copied
+    publicDir: false,
+    assetsInclude: ['**/*.worker.js'],
+    worker: {
+        format: 'iife'
     }
 });

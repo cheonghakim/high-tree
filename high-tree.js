@@ -26,6 +26,10 @@ export default class VirtualTree {
             draggable: options.draggable || false,
             enableDefaultDragDrop: options.enableDefaultDragDrop !== undefined ? options.enableDefaultDragDrop : true, // default: true
             filter: options.filter || null,
+
+            // Worker options
+            useWorker: options.useWorker !== undefined ? options.useWorker : true,
+            workerPath: options.workerPath || null,
         };
 
         // Internal state
@@ -45,7 +49,127 @@ export default class VirtualTree {
             customFilter: this.options.filter,
         };
 
+        // Worker state
+        this.worker = null;
+        this.workerReady = false;
+        this.useWorkerForOperations = false;
+        this.workerMessageId = 0;
+        this.workerCallbacks = new Map();
+        this.pendingWorkerOperation = false;
+
+        this.initWorker();
         this.init();
+    }
+
+    // Initialize Web Worker
+    initWorker() {
+        if (!this.options.useWorker || typeof Worker === 'undefined') {
+            console.log('[high-tree] Worker disabled or not supported, using synchronous mode');
+            this.useWorkerForOperations = false;
+            return;
+        }
+
+        try {
+            // Determine worker path
+            let workerPath = this.options.workerPath;
+
+            if (!workerPath) {
+                // Auto-detect worker path
+                const scriptTag = document.currentScript;
+                if (scriptTag && scriptTag.src) {
+                    const scriptUrl = new URL(scriptTag.src);
+                    workerPath = new URL('high-tree-worker.js', scriptUrl).href;
+                } else {
+                    // Fallback: assume worker is in same directory
+                    workerPath = new URL('high-tree-worker.js', import.meta.url).href;
+                }
+            }
+
+            this.worker = new Worker(workerPath);
+
+            this.worker.onmessage = (e) => this.handleWorkerMessage(e);
+            this.worker.onerror = (error) => {
+                console.error('[high-tree] Worker error:', error);
+                this.useWorkerForOperations = false;
+                // Fallback to synchronous mode
+            };
+
+            console.log('[high-tree] Worker initialized');
+        } catch (error) {
+            console.warn('[high-tree] Failed to initialize worker:', error);
+            this.useWorkerForOperations = false;
+        }
+    }
+
+    // Handle worker messages
+    handleWorkerMessage(e) {
+        const { type, id, result, error } = e.data;
+
+        if (type === 'ready') {
+            this.workerReady = true;
+            this.useWorkerForOperations = true;
+            console.log('[high-tree] Worker ready');
+            return;
+        }
+
+        if (type === 'error') {
+            console.error('[high-tree] Worker error:', error);
+            const callback = this.workerCallbacks.get(id);
+            if (callback && callback.reject) {
+                callback.reject(new Error(error.message));
+                this.workerCallbacks.delete(id);
+            }
+            return;
+        }
+
+        // Handle specific result types
+        const callback = this.workerCallbacks.get(id);
+        if (callback) {
+            callback.resolve(result);
+            this.workerCallbacks.delete(id);
+        }
+    }
+
+    // Send message to worker with promise-based callback
+    postWorkerMessage(type, payload) {
+        return new Promise((resolve, reject) => {
+            const id = ++this.workerMessageId;
+            this.workerCallbacks.set(id, { resolve, reject });
+
+            // Timeout after 5 seconds
+            const timeout = setTimeout(() => {
+                if (this.workerCallbacks.has(id)) {
+                    this.workerCallbacks.delete(id);
+                    reject(new Error('Worker timeout'));
+                }
+            }, 5000);
+
+            // Clear timeout on resolve/reject
+            const originalResolve = resolve;
+            const originalReject = reject;
+            this.workerCallbacks.set(id, {
+                resolve: (result) => {
+                    clearTimeout(timeout);
+                    originalResolve(result);
+                },
+                reject: (error) => {
+                    clearTimeout(timeout);
+                    originalReject(error);
+                }
+            });
+
+            this.worker.postMessage({ type, id, payload });
+        });
+    }
+
+    // Terminate worker
+    terminateWorker() {
+        if (this.worker) {
+            this.worker.terminate();
+            this.worker = null;
+            this.workerReady = false;
+            this.useWorkerForOperations = false;
+        }
     }
 
     // Initialize DOM structure and event bindings
@@ -167,7 +291,57 @@ export default class VirtualTree {
     }
 
     // Flatten tree and apply filtering
-    updateVisibleNodes() {
+    async updateVisibleNodes() {
+        // Prevent multiple simultaneous worker operations
+        if (this.pendingWorkerOperation) {
+            return;
+        }
+
+        if (this.useWorkerForOperations && this.workerReady) {
+            // Use worker for tree operations
+            try {
+                this.pendingWorkerOperation = true;
+
+                const result = await this.postWorkerMessage('flatten', {
+                    nodes: this.state.treeData,
+                    searchTerm: this.state.searchTerm,
+                    expandedIds: Array.from(this.state.expandedIds),
+                    customFilterRules: null // Custom functions can't be serialized
+                });
+
+                // Apply custom filter on main thread if needed
+                let filteredResult = result;
+                if (this.state.customFilter) {
+                    filteredResult = result.filter(node => {
+                        // Find original node to apply filter
+                        const originalNode = this.findNodeById(node.id);
+                        return originalNode && this.state.customFilter(originalNode);
+                    });
+                }
+
+                this.state.visibleNodes = filteredResult;
+
+                // Set total height
+                const totalHeight = filteredResult.length * this.options.rowHeight;
+                this.spacer.style.height = `${totalHeight}px`;
+                this.countDisplay.textContent = `${filteredResult.length} items`;
+
+                this.render();
+            } catch (error) {
+                console.warn('[high-tree] Worker operation failed, falling back to sync:', error);
+                // Fallback to synchronous mode
+                this.updateVisibleNodesSync();
+            } finally {
+                this.pendingWorkerOperation = false;
+            }
+        } else {
+            // Synchronous mode (fallback or worker disabled)
+            this.updateVisibleNodesSync();
+        }
+    }
+
+    // Synchronous version (fallback)
+    updateVisibleNodesSync() {
         const result = [];
         this.flattenFilteredTree(this.state.treeData, 0, result);
         this.state.visibleNodes = result;
