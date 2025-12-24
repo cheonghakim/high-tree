@@ -1,3 +1,4 @@
+
 # 🌳 High-Tree
 
 A lightweight, high-performance virtual tree component for JavaScript with comprehensive features and zero dependencies.
@@ -35,106 +36,7 @@ yarn add high-tree
 
 ### Using CDN
 ```html
-<script src="https://unpkg.com/high-tree/dist/high-tree.umd.cjs"></script>
-```
-
-## 🚀 Quick Start
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-  <div id="tree-container"></div>
-
-  <script type="module">
-    import VirtualTree from 'high-tree';
-
-    const data = [
-      {
-        id: '1',
-        label: 'Documents',
-        children: [
-          { id: '1-1', label: 'Work' },
-          { id: '1-2', label: 'Personal' }
-        ]
-      }
-    ];
-
-    const tree = new VirtualTree(document.getElementById('tree-container'), {
-      data: data,
-      height: 600,
-      rowHeight: 40,
-      
-      // Enable features
-      selectable: true,
-      multiSelect: true,
-      checkbox: true,
-      draggable: true,
-      
-      // Callbacks
-      onClick: (node) => console.log('Clicked:', node.label),
-      onSelect: (nodes) => console.log('Selected:', nodes)
-    });
-  </script>
-</body>
-</html>
-```
-
-## 📖 API Reference
-
-### Constructor
-
-```javascript
-new VirtualTree(element, options)
-```
-
-#### Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `data` | `TreeNode[]` | `[]` | Initial tree data |
-| `rowHeight` | `number` | `40` | Height of each row in pixels |
-# 🌳 High-Tree
-
-A lightweight, high-performance virtual tree component for JavaScript with comprehensive features and zero dependencies.
-
-[![npm version](https://img.shields.io/npm/v/high-tree.svg)](https://www.npmjs.com/package/high-tree)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
-## ✨ Features
-
-- 🚀 **Virtual Scrolling** - Renders only visible nodes for blazing fast performance with 10,000+ nodes
-- 🔍 **Built-in Search** - Real-time search with instant highlighting
-- ⚡ **Lazy Loading** - Load child nodes on demand to optimize initial load time
-- 🎯 **Event Callbacks** - Complete control with onClick, onExpand, onCollapse, onSelect, onCheck, onDrop, onContextMenu
-- ☑️ **Checkbox Mode** - Full support with cascade checking (parent checks all children)
-- 🖱️ **Selection** - Single or multi-select with Ctrl/Cmd+Click
-- 🎨 **Drag & Drop** - Built-in drag-and-drop with visual feedback
-- ⌨️ **Keyboard Navigation** - Full accessibility with arrow keys, Enter, and Space
-- 🔬 **Custom Filtering** - Programmatically filter nodes by any criteria
-- 🎭 **Custom Rendering** - Complete control over node appearance
-- 📦 **Zero Dependencies** - Pure vanilla JavaScript
-- 🌐 **Multiple Formats** - ES modules and UMD support
-- 📘 **TypeScript Ready** - Full TypeScript definitions included
-
-## 📦 Installation
-
-### Using npm
-```bash
-npm install high-tree
-```
-
-### Using yarn
-```bash
-yarn add high-tree
-```
-
-### Using CDN
-```html
-<script src="https://unpkg.com/high-tree/dist/high-tree.umd.cjs"></script>
+<script src="https://unpkg.com/high-tree/dist/high-tree.umd.js"></script>
 ```
 
 ## 🚀 Quick Start
@@ -487,7 +389,7 @@ yarn preview
 
 ## 📄 License
 
-MIT © [Your Name]
+MIT © cheonghakim
 
 ## 🤝 Contributing
 
@@ -495,7 +397,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🐛 Issues
 
-Found a bug? Please [open an issue](https://github.com/yourusername/high-tree/issues).
+Found a bug? Please [open an issue](https://github.com/cheonghakim/high-tree/issues).
 
 ## 🙏 Acknowledgments
 

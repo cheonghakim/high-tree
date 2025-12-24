@@ -31,8 +31,16 @@
     "javascript",
     "vanilla-js"
   ],
-  "author": "",
+  "author": "cheonghakim",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cheonghakim/high-tree.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cheonghakim/high-tree/issues"
+  },
+  "homepage": "https://github.com/cheonghakim/high-tree#readme",
   "devDependencies": {
     "terser": "^5.44.1",
     "vite": "^5.0.0"

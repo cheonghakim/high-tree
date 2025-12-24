@@ -1,0 +1,17 @@
+# Development files
+node_modules/
+.git/
+.gitignore
+
+# Examples (users can view these on GitHub)
+example.html
+example-non-lazy.html
+
+# Build configuration
+vite.config.js
+yarn.lock
+
+# Source files (we only publish the built dist/)
+high-tree.js
+
+# Documentation (keep README.md, it will be shown on npm)
