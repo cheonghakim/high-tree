@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Tree: Non-Lazy Example</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+
+        mark {
+            background-color: #fef08a;
+            color: #713f12;
+            border-radius: 2px;
+            padding: 0 2px;
+        }
+
+        .tree-node-container {
+            will-change: transform;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">🌳 High-Tree - Non-Lazy Mode</h1>
+            <p class="text-slate-500 text-sm mt-2">모든 데이터가 처음부터 로드된 트리</p>
+        </header>
+
+        <!-- Info Box -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 class="font-semibold text-blue-900 mb-2">💡 Non-Lazy Mode란?</h3>
+            <p class="text-sm text-blue-800">
+                전체 트리 데이터가 처음부터 메모리에 로드되어 있습니다.
+                <strong>Expand All</strong> 버튼을 누르면 즉시 모든 노드가 확장됩니다!
+            </p>
+        </div>
+
+        <!-- Tree Container -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4">Interactive Tree</h2>
+
+            <!-- Control Buttons -->
+            <div class="mb-4 flex flex-wrap gap-2">
+                <button id="btn-expand-all"
+                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+                    📂 Expand All
+                </button>
+                <button id="btn-collapse-all"
+                    class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
+                    📁 Collapse All
+                </button>
+                <button id="btn-clear-selection"
+                    class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition">
+                    🔲 Clear Selection
+                </button>
+                <button id="btn-get-checked"
+                    class="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition">
+                    ✅ Get Checked
+                </button>
+            </div>
+
+            <!-- Tree Component -->
+            <div id="tree-container"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600" id="total-nodes">0</div>
+                <div class="text-sm text-slate-600">Total Nodes</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 text-center">
+                <div class="text-2xl font-bold text-green-600" id="selected-count">0</div>
+                <div class="text-sm text-slate-600">Selected</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 text-center">
+                <div class="text-2xl font-bold text-pink-600" id="checked-count">0</div>
+                <div class="text-sm text-slate-600">Checked</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import VirtualTree from './high-tree.js';
+
+        // Generate comprehensive tree data
+        function generateTreeData(depth = 3, breadth = 4, prefix = '') {
+            const nodes = [];
+
+            for (let i = 0; i < breadth; i++) {
+                const id = prefix ? `${prefix}-${i}` : `node-${i}`;
+                const node = {
+                    id: id,
+                    label: prefix ? `Child ${i + 1}` : `Category ${i + 1}`,
+                    type: depth > 1 ? 'folder' : 'file'
+                };
+
+                // Recursively add children
+                if (depth > 1) {
+                    node.children = generateTreeData(depth - 1, Math.max(2, breadth - 1), id);
+                }
+
+                nodes.push(node);
+            }
+
+            return nodes;
+        }
+
+        // Generate data: 3 levels deep, 4 nodes per level = ~84 total nodes
+        const treeData = generateTreeData(3, 4);
+
+        // Count total nodes
+        function countNodes(nodes) {
+            let count = nodes.length;
+            nodes.forEach(node => {
+                if (node.children) {
+                    count += countNodes(node.children);
+                }
+            });
+            return count;
+        }
+
+        const totalNodes = countNodes(treeData);
+        document.getElementById('total-nodes').textContent = totalNodes;
+
+        // Initialize tree
+        const tree = new VirtualTree(document.getElementById('tree-container'), {
+            data: treeData,
+            height: 500,
+            rowHeight: 40,
+            lazy: false,  // ⭐ Non-lazy mode!
+
+            // Features
+            selectable: true,
+            multiSelect: true,
+            cascadeSelect: true,
+            checkbox: true,
+            draggable: true,
+
+            // Callbacks
+            onClick: (node) => {
+                console.log('Clicked:', node.label);
+            },
+
+            onSelect: (selectedNodes) => {
+                document.getElementById('selected-count').textContent = selectedNodes.length;
+                console.log('Selected:', selectedNodes.map(n => n.label));
+            },
+
+            onCheck: (checkedNodes) => {
+                document.getElementById('checked-count').textContent = checkedNodes.length;
+                console.log('Checked:', checkedNodes.length, 'nodes');
+            },
+
+            onDrop: (draggedNode, targetNode, position) => {
+                console.log(`Dropped "${draggedNode.label}" ${position} "${targetNode.label}"`);
+
+                // Get current data
+                const currentData = tree.getData();
+
+                // Helper: Remove node
+                function removeNode(nodes, nodeId) {
+                    for (let i = 0; i < nodes.length; i++) {
+                        if (nodes[i].id === nodeId) {
+                            return nodes.splice(i, 1)[0];
+                        }
+                        if (nodes[i].children) {
+                            const removed = removeNode(nodes[i].children, nodeId);
+                            if (removed) return removed;
+                        }
+                    }
+                    return null;
+                }
+
+                // Helper: Insert node
+                function insertNode(nodes, targetId, nodeToInsert, pos) {
+                    for (let i = 0; i < nodes.length; i++) {
+                        if (nodes[i].id === targetId) {
+                            if (pos === 'inside') {
+                                if (!nodes[i].children) nodes[i].children = [];
+                                nodes[i].children.push(nodeToInsert);
+                            } else if (pos === 'before') {
+                                nodes.splice(i, 0, nodeToInsert);
+                            } else {
+                                nodes.splice(i + 1, 0, nodeToInsert);
+                            }
+                            return true;
+                        }
+                        if (nodes[i].children && insertNode(nodes[i].children, targetId, nodeToInsert, pos)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                // Validate
+                if (draggedNode.id === targetNode.id) {
+                    alert('Cannot drop onto itself!');
+                    return;
+                }
+
+                // Move node
+                const removed = removeNode(currentData, draggedNode.id);
+                if (removed) {
+                    insertNode(currentData, targetNode.id, removed, position);
+                    tree.setData(currentData);
+                    console.log('✅ Node moved successfully!');
+                }
+            },
+
+            // Custom rendering
+            renderNode: (node, searchTerm) => {
+                const icon = node.type === 'folder' ? '📁' : '📄';
+                const highlight = searchTerm
+                    ? node.label.replace(new RegExp(`(${searchTerm})`, 'gi'), '<mark>$1</mark>')
+                    : node.label;
+
+                return `
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="text-lg">${icon}</span>
+                        <span class="text-sm font-medium text-slate-700 truncate">${highlight}</span>
+                    </div>
+                `;
+            }
+        });
+
+        // Button handlers
+        document.getElementById('btn-expand-all').addEventListener('click', async () => {
+            console.time('expandAll');
+            await tree.expandAll();
+            console.timeEnd('expandAll');
+            console.log('✅ All nodes expanded instantly!');
+        });
+
+        document.getElementById('btn-collapse-all').addEventListener('click', () => {
+            tree.collapseAll();
+            console.log('✅ All nodes collapsed!');
+        });
+
+        document.getElementById('btn-clear-selection').addEventListener('click', () => {
+            tree.clearSelection();
+            document.getElementById('selected-count').textContent = '0';
+        });
+
+        document.getElementById('btn-get-checked').addEventListener('click', () => {
+            const checked = tree.getCheckedNodes();
+            if (checked.length > 0) {
+                alert(`Checked nodes (${checked.length}):\n${checked.map(n => n.label).join('\n')}`);
+            } else {
+                alert('No nodes are checked');
+            }
+        });
+
+        // Make tree accessible globally
+        window.tree = tree;
+        console.log('✅ Tree loaded with', totalNodes, 'nodes');
+        console.log('💡 Try: await tree.expandAll()');
+    </script>
+
+</body>
+
+</html>

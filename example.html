@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Tree: Advanced Features Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+
+        mark {
+            background-color: #fef08a;
+            color: #713f12;
+            border-radius: 2px;
+            padding: 0 2px;
+        }
+
+        .tree-node-container {
+            will-change: transform;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8fafc;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .log-entry.expand {
+            border-left-color: #10b981;
+        }
+
+        .log-entry.collapse {
+            border-left-color: #f59e0b;
+        }
+
+        .log-entry.select {
+            border-left-color: #8b5cf6;
+        }
+
+        .log-entry.check {
+            border-left-color: #ec4899;
+        }
+
+        .button-group button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .button-group button:hover {
+            background: #f1f5f9;
+        }
+
+        .button-group button:active {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">🌳 High-Tree Advanced Features</h1>
+            <p class="text-slate-500 text-sm mt-2">가볍고 빠른 트리 컴포넌트 - 고급 기능 데모</p>
+        </header>
+
+        <!-- Feature Badges -->
+        <div class="flex flex-wrap gap-2 justify-center">
+            <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">✅ Event
+                Callbacks</span>
+            <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">✅ Selection</span>
+            <span class="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">✅ Checkboxes</span>
+            <span class="px-3 py-1 bg-pink-100 text-pink-700 text-xs font-semibold rounded-full">✅ Drag & Drop</span>
+            <span class="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">✅ Keyboard
+                Nav</span>
+            <span class="px-3 py-1 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-full">✅ Filtering</span>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Tree Container -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                    <h2 class="text-lg font-semibold text-slate-800 mb-4">Interactive Tree Demo</h2>
+
+                    <!-- Control Buttons -->
+                    <div class="mb-4 space-y-2">
+                        <div class="button-group flex flex-wrap gap-2">
+                            <button id="btn-expand-all" class="bg-white">📂 Expand All</button>
+                            <button id="btn-collapse-all" class="bg-white">📁 Collapse All</button>
+                            <button id="btn-clear-selection" class="bg-white">🔲 Clear Selection</button>
+                            <button id="btn-get-checked" class="bg-white">✅ Get Checked</button>
+                        </div>
+                        <div class="button-group flex flex-wrap gap-2">
+                            <button id="btn-filter-folders" class="bg-white">🗂️ Filter Folders Only</button>
+                            <button id="btn-clear-filter" class="bg-white">🔄 Clear Filter</button>
+                        </div>
+                    </div>
+
+                    <!-- Tree Component -->
+                    <div id="virtual-tree-root"></div>
+
+                    <!-- Keyboard Shortcuts -->
+                    <div class="mt-4 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
+                        <strong>⌨️ Keyboard Shortcuts:</strong>
+                        <span class="ml-2">↑↓ Navigate</span>
+                        <span class="ml-2">←→ Collapse/Expand</span>
+                        <span class="ml-2">Enter Toggle</span>
+                        <span class="ml-2">Space Select</span>
+                        <span class="ml-2">Ctrl+Click Multi-select</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Event Log -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sticky top-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-semibold text-slate-800">📋 Event Log</h2>
+                        <button id="btn-clear-log" class="text-xs text-slate-500 hover:text-slate-700">Clear</button>
+                    </div>
+                    <div id="event-log" class="max-h-[600px] overflow-auto custom-scrollbar space-y-1">
+                        <div class="text-sm text-slate-400 text-center py-8">No events yet...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Documentation -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">✨ Features Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Event Callbacks</h3>
+                    <p class="text-sm text-slate-600">onClick, onExpand, onCollapse, onSelect, onCheck, onDrop,
+                        onContextMenu</p>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Selection</h3>
+                    <p class="text-sm text-slate-600">Single/multi-select with Ctrl+Click, programmatic selection API
+                    </p>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Checkboxes</h3>
+                    <p class="text-sm text-slate-600">Cascade checking (parent checks children automatically)</p>
+                </div>
+                <div class="border-l-4 border-pink-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Drag & Drop</h3>
+                    <p class="text-sm text-slate-600">Drag nodes to reorder, actually moves nodes in tree!</p>
+                </div>
+                <div class="border-l-4 border-orange-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Keyboard Navigation</h3>
+                    <p class="text-sm text-slate-600">Full keyboard support for accessibility</p>
+                </div>
+                <div class="border-l-4 border-cyan-500 pl-4">
+                    <h3 class="font-semibold text-slate-700">Custom Filtering</h3>
+                    <p class="text-sm text-slate-600">Filter nodes by custom criteria programmatically</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import VirtualTree from './high-tree.js';
+
+        // Event logging
+        const eventLog = document.getElementById('event-log');
+        let logCount = 0;
+
+        function addLog(message, type = 'default') {
+            logCount++;
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+
+            if (logCount === 1) {
+                eventLog.innerHTML = '';
+            }
+
+            eventLog.insertBefore(entry, eventLog.firstChild);
+
+            if (logCount > 50) {
+                eventLog.lastChild.remove();
+            }
+        }
+
+        document.getElementById('btn-clear-log').addEventListener('click', () => {
+            eventLog.innerHTML = '<div class="text-sm text-slate-400 text-center py-8">No events yet...</div>';
+            logCount = 0;
+        });
+
+        // Sample data
+        const initialData = Array.from({ length: 50 }, (_, i) => ({
+            id: `root-${i}`,
+            label: `카테고리 ${i + 1}`,
+            hasChildren: true,
+            level: 0,
+            type: 'folder'
+        }));
+
+        // Helper function: Remove node from tree
+        function removeNodeFromTree(nodes, nodeId) {
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === nodeId) {
+                    return nodes.splice(i, 1)[0];
+                }
+                if (nodes[i].children) {
+                    const removed = removeNodeFromTree(nodes[i].children, nodeId);
+                    if (removed) return removed;
+                }
+            }
+            return null;
+        }
+
+        // Helper function: Insert node at target
+        function insertNodeInTree(nodes, targetId, nodeToInsert, position) {
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === targetId) {
+                    if (position === 'inside') {
+                        if (!nodes[i].children) {
+                            nodes[i].children = [];
+                        }
+                        nodes[i].children.push(nodeToInsert);
+                    } else if (position === 'before') {
+                        nodes.splice(i, 0, nodeToInsert);
+                    } else if (position === 'after') {
+                        nodes.splice(i + 1, 0, nodeToInsert);
+                    }
+                    return true;
+                }
+                if (nodes[i].children) {
+                    if (insertNodeInTree(nodes[i].children, targetId, nodeToInsert, position)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Helper function: Check if node is descendant
+        function isDescendant(nodes, ancestorId, descendantId) {
+            const findNode = (nodeList, id) => {
+                for (const node of nodeList) {
+                    if (node.id === id) return node;
+                    if (node.children) {
+                        const found = findNode(node.children, id);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+
+            const checkDescendant = (node, targetId) => {
+                if (node.id === targetId) return true;
+                if (node.children) {
+                    return node.children.some(child => checkDescendant(child, targetId));
+                }
+                return false;
+            };
+
+            const ancestorNode = findNode(nodes, ancestorId);
+            return ancestorNode && checkDescendant(ancestorNode, descendantId);
+        }
+
+        // Initialize tree
+        const tree = new VirtualTree(document.getElementById('virtual-tree-root'), {
+            data: initialData,
+            height: 600,
+            rowHeight: 40,
+            lazy: true,
+
+            // Features enabled
+            selectable: true,
+            multiSelect: true,
+            cascadeSelect: true, // 부모 선택 시 자식도 선택
+            checkbox: true,
+            draggable: true,
+
+            // Callbacks
+            onClick: (node, event) => {
+                addLog(`Clicked: ${node.label}`, 'default');
+            },
+
+            onExpand: (node) => {
+                addLog(`Expanded: ${node.label}`, 'expand');
+            },
+
+            onCollapse: (node) => {
+                addLog(`Collapsed: ${node.label}`, 'collapse');
+            },
+
+            onSelect: (selectedNodes) => {
+                addLog(`Selected ${selectedNodes.length} node(s): ${selectedNodes.map(n => n.label).join(', ')}`, 'select');
+            },
+
+            onCheck: (checkedNodes) => {
+                addLog(`Checked ${checkedNodes.length} node(s)`, 'check');
+            },
+
+
+            onDrop: (draggedNode, targetNode, position) => {
+                // 기본 드래그 앤 드롭이 자동으로 처리됨 (enableDefaultDragDrop: true)
+                addLog(`✅ Moved "${draggedNode.label}" ${position} "${targetNode.label}"`, 'default');
+            },
+
+            onContextMenu: (node, event) => {
+                addLog(`Right-clicked: ${node.label}`, 'default');
+                alert(`Context menu for: ${node.label}\n\nYou can implement custom context menus here!`);
+            },
+
+            onLoadData: async (node) => {
+                await new Promise(r => setTimeout(r, 400));
+                const childCount = Math.floor(Math.random() * 5) + 1;
+                return Array.from({ length: childCount }, (_, i) => ({
+                    id: `${node.id}-child-${i}`,
+                    label: `${node.label}의 하위 ${i + 1}`,
+                    hasChildren: node.level < 2,
+                    level: node.level + 1,
+                    type: i % 2 === 0 ? 'folder' : 'file'
+                }));
+            },
+
+            // Custom rendering
+            renderNode: (node, searchTerm) => {
+                const highlight = (text) => {
+                    if (!searchTerm) return text;
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    return text.replace(regex, '<mark>$1</mark>');
+                };
+
+                const icon = node.type === 'folder'
+                    ? '📁'
+                    : '📄';
+
+                return `
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="text-lg">${icon}</span>
+                        <span class="text-sm font-medium text-slate-700 truncate">${highlight(node.label)}</span>
+                        ${node.isMatch ? '<span class="ml-auto text-[9px] bg-green-100 text-green-600 px-1 rounded">MATCH</span>' : ''}
+                    </div>
+                `;
+            }
+        });
+
+        // Control buttons
+        document.getElementById('btn-expand-all').addEventListener('click', async () => {
+            await tree.expandAll();
+            addLog('Expanded all nodes', 'expand');
+        });
+
+        document.getElementById('btn-collapse-all').addEventListener('click', () => {
+            tree.collapseAll();
+            addLog('Collapsed all nodes', 'collapse');
+        });
+
+        document.getElementById('btn-clear-selection').addEventListener('click', () => {
+            tree.clearSelection();
+            addLog('Cleared selection', 'select');
+        });
+
+        document.getElementById('btn-get-checked').addEventListener('click', () => {
+            const checked = tree.getCheckedNodes();
+            addLog(`Total checked: ${checked.length} nodes`, 'check');
+            if (checked.length > 0) {
+                alert(`Checked nodes:\n${checked.map(n => n.label).join('\n')}`);
+            } else {
+                alert('No nodes are checked');
+            }
+        });
+
+        document.getElementById('btn-filter-folders').addEventListener('click', () => {
+            tree.setFilter(node => node.type === 'folder');
+            addLog('Filter applied: Folders only', 'default');
+        });
+
+        document.getElementById('btn-clear-filter').addEventListener('click', () => {
+            tree.clearFilter();
+            addLog('Filter cleared', 'default');
+        });
+
+        // Make tree accessible globally for debugging
+        window.tree = tree;
+        console.log('Tree instance available at window.tree');
+        console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(tree)));
+    </script>
+
+</body>
+
+</html>

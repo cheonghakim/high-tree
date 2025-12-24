@@ -1,0 +1,37 @@
+{
+  "name": "high-tree",
+  "version": "1.0.0",
+  "description": "A lightweight, fast virtual tree component for JavaScript",
+  "type": "module",
+  "main": "./dist/high-tree.umd.cjs",
+  "module": "./dist/high-tree.js",
+  "types": "./high-tree.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/high-tree.js",
+      "require": "./dist/high-tree.umd.cjs",
+      "types": "./high-tree.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "high-tree.d.ts"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "tree",
+    "virtual-tree",
+    "component",
+    "javascript",
+    "vanilla-js"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
