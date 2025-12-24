@@ -24,11 +24,11 @@ export default class VirtualTree {
             cascadeSelect: options.cascadeSelect || false,
             checkbox: options.checkbox || false,
             draggable: options.draggable || false,
-            enableDefaultDragDrop: options.enableDefaultDragDrop !== undefined ? options.enableDefaultDragDrop : true, // 기본값 true
+            enableDefaultDragDrop: options.enableDefaultDragDrop !== undefined ? options.enableDefaultDragDrop : true, // default: true
             filter: options.filter || null,
         };
 
-        // 내부 상태 (State)
+        // Internal state
         this.state = {
             treeData: [...this.options.data],
             expandedIds: new Set(),
@@ -48,7 +48,7 @@ export default class VirtualTree {
         this.init();
     }
 
-    // 초기 구조 생성 및 이벤트 바인딩
+    // Initialize DOM structure and event bindings
     init() {
         this.container.innerHTML = `
       <div class="flex flex-col border border-slate-200 rounded-xl bg-white shadow-sm overflow-hidden" style="height: ${this.options.height}px" tabindex="0" id="tree-container">
@@ -76,7 +76,7 @@ export default class VirtualTree {
         this.searchInput = this.container.querySelector('#tree-search');
         this.countDisplay = this.container.querySelector('#tree-count');
 
-        // 이벤트 리스너
+        // Event listeners
         this.viewport.addEventListener('scroll', () => {
             this.state.scrollTop = this.viewport.scrollTop;
             this.render();
@@ -87,9 +87,9 @@ export default class VirtualTree {
             this.viewport.scrollTop = 0;
         });
 
-        // 노드 클릭 (이벤트 위임)
+        // Node click (event delegation)
         this.contentLayer.addEventListener('click', (e) => {
-            // 체크박스 클릭
+            // Checkbox click
             if (e.target.closest('.tree-checkbox')) {
                 const nodeEl = e.target.closest('[data-id]');
                 if (nodeEl) {
@@ -99,7 +99,7 @@ export default class VirtualTree {
                 return;
             }
 
-            // 노드 클릭
+            // Node click
             const nodeEl = e.target.closest('[data-id]');
             if (nodeEl) {
                 const nodeId = nodeEl.dataset.id;
@@ -107,7 +107,7 @@ export default class VirtualTree {
             }
         });
 
-        // 컨텍스트 메뉴
+        // Context menu
         if (this.options.onContextMenu) {
             this.contentLayer.addEventListener('contextmenu', (e) => {
                 const nodeEl = e.target.closest('[data-id]');
@@ -121,7 +121,7 @@ export default class VirtualTree {
             });
         }
 
-        // 드래그 앤 드롭
+        // Drag and drop
         if (this.options.draggable) {
             this.contentLayer.addEventListener('dragstart', (e) => {
                 const nodeEl = e.target.closest('[data-id]');
@@ -131,7 +131,7 @@ export default class VirtualTree {
             });
 
             this.contentLayer.addEventListener('dragover', (e) => {
-                e.preventDefault(); // 이게 있어야 drop 이벤트가 발생!
+                e.preventDefault(); // Required for drop event to fire
                 const nodeEl = e.target.closest('[data-id]');
                 if (nodeEl) {
                     this.handleDragOver(e, nodeEl.dataset.id);
@@ -139,7 +139,7 @@ export default class VirtualTree {
             });
 
             this.contentLayer.addEventListener('drop', (e) => {
-                e.preventDefault(); // 기본 동작 막기
+                e.preventDefault(); // Prevent default behavior
                 const nodeEl = e.target.closest('[data-id]');
                 if (nodeEl) {
                     this.handleDrop(e, nodeEl.dataset.id);
@@ -152,7 +152,7 @@ export default class VirtualTree {
             });
         }
 
-        // 키보드 네비게이션
+        // Keyboard navigation
         this.treeContainer.addEventListener('keydown', (e) => {
             this.handleKeyDown(e);
         });
@@ -160,19 +160,19 @@ export default class VirtualTree {
         this.updateVisibleNodes();
     }
 
-    // 상태 변경 함수
+    // State change function
     setState(newState) {
         this.state = { ...this.state, ...newState };
         this.updateVisibleNodes();
     }
 
-    // 트리 평면화 및 필터링
+    // Flatten tree and apply filtering
     updateVisibleNodes() {
         const result = [];
         this.flattenFilteredTree(this.state.treeData, 0, result);
         this.state.visibleNodes = result;
 
-        // 전체 높이 설정
+        // Set total height
         const totalHeight = result.length * this.options.rowHeight;
         this.spacer.style.height = `${totalHeight}px`;
         this.countDisplay.textContent = `${result.length} items`;
@@ -185,7 +185,7 @@ export default class VirtualTree {
         const currentSearch = this.state.searchTerm.trim().toLowerCase();
 
         for (const node of nodes) {
-            // 커스텀 필터 적용
+            // Apply custom filter
             if (this.state.customFilter && !this.state.customFilter(node)) {
                 continue;
             }
@@ -209,20 +209,20 @@ export default class VirtualTree {
         return hasMatchInBranch;
     }
 
-    // 노드 클릭 핸들러
+    // Node click handler
     async handleNodeClick(nodeId, event) {
         const node = this.findNodeById(nodeId);
         if (!node) return;
 
-        // onClick 콜백
+        // onClick callback
         if (this.options.onClick) {
             this.options.onClick(node, event);
         }
 
-        // 선택 기능
+        // Selection feature
         if (this.options.selectable) {
             if (this.options.multiSelect && (event.ctrlKey || event.metaKey)) {
-                // 다중 선택
+                // Multi-select
                 if (this.state.selectedIds.has(nodeId)) {
                     this.state.selectedIds.delete(nodeId);
                     // Cascade deselect
@@ -237,7 +237,7 @@ export default class VirtualTree {
                     }
                 }
             } else {
-                // 단일 선택
+                // Single select
                 this.state.selectedIds.clear();
                 this.state.selectedIds.add(nodeId);
                 // Cascade select
@@ -255,7 +255,7 @@ export default class VirtualTree {
             this.render();
         }
 
-        // 확장/축소
+        // Expand/collapse
         if (this.state.expandedIds.has(nodeId)) {
             this.state.expandedIds.delete(nodeId);
             if (this.options.onCollapse) {
@@ -271,7 +271,7 @@ export default class VirtualTree {
                 try {
                     const newChildren = await this.options.onLoadData(node);
 
-                    // 데이터 업데이트
+                    // Update data structure
                     const updateRecursive = (list) => {
                         return list.map(n => {
                             if (n.id === nodeId) return { ...n, children: newChildren };
@@ -325,7 +325,7 @@ export default class VirtualTree {
         }
     }
 
-    // 체크박스 클릭 핸들러
+    // Checkbox click handler
     handleCheckboxClick(nodeId, event) {
         if (!this.options.checkbox) return;
 
@@ -345,7 +345,7 @@ export default class VirtualTree {
         this.render();
     }
 
-    // 드래그 앤 드롭 핸들러
+    // Drag and drop handlers
     handleDragStart(event, nodeId) {
         this.state.draggingNode = nodeId;
         event.dataTransfer.effectAllowed = 'move';
@@ -355,14 +355,14 @@ export default class VirtualTree {
     handleDragOver(event, nodeId) {
         if (this.state.draggingNode === nodeId) return;
 
-        // Drop 가능하도록 설정
+        // Enable drop
         event.dataTransfer.dropEffect = 'move';
 
-        // 상태만 업데이트 (render 호출 안 함 - drop 이벤트를 방해하지 않기 위해)
+        // Update state only (no render call to avoid interfering with drop event)
         if (this.state.dragOverNode !== nodeId) {
             this.state.dragOverNode = nodeId;
 
-            // requestAnimationFrame으로 렌더링 최적화
+            // Optimize rendering with requestAnimationFrame
             if (!this._dragOverRenderScheduled) {
                 this._dragOverRenderScheduled = true;
                 requestAnimationFrame(() => {
@@ -383,16 +383,16 @@ export default class VirtualTree {
             console.log('Found nodes:', { draggedNode, targetNode });
 
             if (draggedNode && targetNode) {
-                // 기본 드래그 앤 드롭 처리
+                // Default drag and drop handling
                 if (this.options.enableDefaultDragDrop) {
                     console.log('Default drag-drop enabled:', this.options.enableDefaultDragDrop);
 
-                    // 유효성 검사: 자기 자신이나 자손으로는 이동 불가
+                    // Validation: cannot drop onto itself or descendants
                     const isDescendant = this.isNodeDescendant(draggedNode.id, targetNode.id);
                     console.log('Is descendant?', isDescendant);
 
                     if (!isDescendant) {
-                        // 노드 이동 실행
+                        // Execute node move
                         console.log('Removing node:', draggedNode.id);
                         const removed = this.removeNodeFromTree(this.state.treeData, draggedNode.id);
                         console.log('Removed node:', removed);
@@ -402,7 +402,7 @@ export default class VirtualTree {
                             const inserted = this.insertNodeInTree(this.state.treeData, targetNode.id, removed, 'inside');
                             console.log('Insert result:', inserted);
 
-                            // 명시적으로 렌더링 업데이트
+                            // Explicitly update rendering
                             this.updateVisibleNodes();
                             console.log('✅ Node moved successfully!');
                         } else {
@@ -413,7 +413,7 @@ export default class VirtualTree {
                     }
                 }
 
-                // 커스텀 콜백 호출 (기본 동작 후)
+                // Call custom callback (after default action)
                 if (this.options.onDrop) {
                     this.options.onDrop(draggedNode, targetNode, 'inside');
                 }
@@ -427,7 +427,7 @@ export default class VirtualTree {
         this.render();
     }
 
-    // 키보드 네비게이션
+    // Keyboard navigation
     handleKeyDown(event) {
         if (!this.state.visibleNodes.length) return;
 
@@ -507,14 +507,14 @@ export default class VirtualTree {
         }
     }
 
-    // 검색어 하이라이트
+    // Highlight search term
     getHighlightedText(text) {
         if (!this.state.searchTerm) return text;
         const regex = new RegExp(`(${this.state.searchTerm})`, 'gi');
         return text.replace(regex, '<mark>$1</mark>');
     }
 
-    // 실제 DOM 렌더링
+    // Actual DOM rendering
     render() {
         const { visibleNodes, scrollTop } = this.state;
         const { rowHeight, height } = this.options;
@@ -544,7 +544,7 @@ export default class VirtualTree {
             const isChecked = this.state.checkedIds.has(node.id);
             const isDragOver = this.state.dragOverNode === node.id;
 
-            // 커스텀 렌더 함수
+            // Custom render function
             const content = this.options.renderNode
                 ? this.options.renderNode(node, this.state.searchTerm)
                 : `
@@ -586,7 +586,7 @@ export default class VirtualTree {
 
     // ========== Public API ==========
 
-    // 노드 찾기
+    // Find node by ID
     findNodeById(nodeId) {
         const find = (nodes) => {
             for (const n of nodes) {
@@ -601,7 +601,7 @@ export default class VirtualTree {
         return find(this.state.treeData);
     }
 
-    // 확장
+    // Expand node
     expandNode(nodeId) {
         if (!this.state.expandedIds.has(nodeId)) {
             this.state.expandedIds.add(nodeId);
@@ -613,7 +613,7 @@ export default class VirtualTree {
         }
     }
 
-    // 축소
+    // Collapse node
     collapseNode(nodeId) {
         if (this.state.expandedIds.has(nodeId)) {
             this.state.expandedIds.delete(nodeId);
@@ -625,10 +625,10 @@ export default class VirtualTree {
         }
     }
 
-    // 모두 확장 (비동기 - lazy loading 지원)
+    // Expand all (async with lazy loading support)
     async expandAll() {
         if (!this.options.lazy) {
-            // Non-lazy: 단순히 모든 노드 확장
+            // Non-lazy: simply expand all nodes
             const expandRecursive = (nodes) => {
                 nodes.forEach(node => {
                     if (node.children || node.hasChildren) {
@@ -642,14 +642,14 @@ export default class VirtualTree {
             expandRecursive(this.state.treeData);
             this.updateVisibleNodes();
         } else {
-            // Lazy: 병렬로 로드하며 확장 (성능 최적화)
+            // Lazy: load and expand in parallel (performance optimization)
             const expandAndLoadRecursive = async (nodes) => {
-                // 같은 레벨의 노드들을 병렬로 처리
+                // Process same-level nodes in parallel
                 const loadPromises = nodes.map(async (node) => {
                     if (node.children || node.hasChildren) {
                         this.state.expandedIds.add(node.id);
 
-                        // 자식이 아직 로드되지 않았으면 로드
+                        // Load children if not yet loaded
                         if (node.hasChildren && !node.children) {
                             try {
                                 this.state.loadingIds.add(node.id);
@@ -657,7 +657,7 @@ export default class VirtualTree {
 
                                 const newChildren = await this.options.onLoadData(node);
 
-                                // 데이터 업데이트
+                                // Update data structure
                                 const updateRecursive = (list) => {
                                     return list.map(n => {
                                         if (n.id === node.id) return { ...n, children: newChildren };
@@ -667,7 +667,7 @@ export default class VirtualTree {
                                 };
                                 this.state.treeData = updateRecursive(this.state.treeData);
 
-                                // 체크박스 상속
+                                // Inherit checkbox state
                                 if (this.options.checkbox && this.state.checkedIds.has(node.id)) {
                                     const checkChildren = (children) => {
                                         children.forEach(child => {
@@ -678,7 +678,7 @@ export default class VirtualTree {
                                     checkChildren(newChildren);
                                 }
 
-                                // 선택 상속
+                                // Inherit selection state
                                 if (this.options.selectable && this.options.cascadeSelect && this.state.selectedIds.has(node.id)) {
                                     const selectChildren = (children) => {
                                         children.forEach(child => {
@@ -691,20 +691,20 @@ export default class VirtualTree {
 
                                 this.state.loadingIds.delete(node.id);
 
-                                // 재귀적으로 자식들도 병렬로 확장
+                                // Recursively expand children in parallel
                                 await expandAndLoadRecursive(newChildren);
                             } catch (error) {
                                 console.error('Error loading children in expandAll:', error);
                                 this.state.loadingIds.delete(node.id);
                             }
                         } else if (node.children) {
-                            // 이미 로드된 자식 병렬로 확장
+                            // Expand already loaded children in parallel
                             await expandAndLoadRecursive(node.children);
                         }
                     }
                 });
 
-                // 모든 노드를 병렬로 처리
+                // Process all nodes in parallel
                 await Promise.all(loadPromises);
             };
 
@@ -713,13 +713,13 @@ export default class VirtualTree {
         }
     }
 
-    // 모두 축소
+    // Collapse all
     collapseAll() {
         this.state.expandedIds.clear();
         this.setState({});
     }
 
-    // 선택
+    // Select node
     selectNode(nodeId) {
         if (!this.options.selectable) return;
 
@@ -734,7 +734,7 @@ export default class VirtualTree {
         this.render();
     }
 
-    // 선택 해제
+    // Unselect node
     unselectNode(nodeId) {
         this.state.selectedIds.delete(nodeId);
 
@@ -744,12 +744,12 @@ export default class VirtualTree {
         this.render();
     }
 
-    // 선택된 노드들 가져오기
+    // Get selected nodes
     getSelectedNodes() {
         return Array.from(this.state.selectedIds).map(id => this.findNodeById(id)).filter(Boolean);
     }
 
-    // 모든 선택 해제
+    // Clear all selections
     clearSelection() {
         this.state.selectedIds.clear();
 
@@ -759,7 +759,7 @@ export default class VirtualTree {
         this.render();
     }
 
-    // 체크
+    // Check node
     checkNode(nodeId, cascade = false) {
         if (!this.options.checkbox) return;
 
@@ -783,7 +783,7 @@ export default class VirtualTree {
         // Don't render here, let the caller handle it
     }
 
-    // 체크 해제
+    // Uncheck node
     uncheckNode(nodeId, cascade = false) {
         if (!this.options.checkbox) return;
 
@@ -807,35 +807,35 @@ export default class VirtualTree {
         // Don't render here, let the caller handle it
     }
 
-    // 체크된 노드들 가져오기
+    // Get checked nodes
     getCheckedNodes() {
         return Array.from(this.state.checkedIds).map(id => this.findNodeById(id)).filter(Boolean);
     }
 
-    // 필터 설정
+    // Set filter
     setFilter(filterFn) {
         this.state.customFilter = filterFn;
         this.updateVisibleNodes();
     }
 
-    // 필터 제거
+    // Clear filter
     clearFilter() {
         this.state.customFilter = null;
         this.updateVisibleNodes();
     }
 
-    // 새로고침
+    // Refresh
     refresh() {
         this.updateVisibleNodes();
     }
 
-    // 데이터 업데이트
+    // Update data
     setData(newData) {
         this.state.treeData = [...newData];
         this.updateVisibleNodes();
     }
 
-    // 전체 데이터 가져오기
+    // Get all data
     getData() {
         return this.state.treeData;
     }
