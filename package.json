@@ -1,6 +1,6 @@
 {
   "name": "high-tree",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A lightweight, fast virtual tree component for JavaScript",
   "type": "module",
   "main": "./dist/high-tree.umd.js",
