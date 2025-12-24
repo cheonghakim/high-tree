@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "description": "A lightweight, fast virtual tree component for JavaScript",
   "type": "module",
-  "main": "./dist/high-tree.umd.cjs",
-  "module": "./dist/high-tree.js",
+  "main": "./dist/high-tree.umd.js",
+  "module": "./dist/high-tree.esm.js",
+  "browser": "./dist/high-tree.iife.js",
   "types": "./high-tree.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/high-tree.js",
-      "require": "./dist/high-tree.umd.cjs",
+      "import": "./dist/high-tree.esm.js",
+      "require": "./dist/high-tree.umd.js",
+      "browser": "./dist/high-tree.iife.js",
       "types": "./high-tree.d.ts"
     }
   },
@@ -32,6 +34,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "terser": "^5.44.1",
     "vite": "^5.0.0"
   }
 }
