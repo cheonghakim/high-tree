@@ -23,7 +23,7 @@ A lightweight, high-performance virtual tree component for JavaScript with compr
 - 📘 **TypeScript Ready** - Full TypeScript definitions included
 
 ## Demo
-- https://cheonghakim.github.io/
+- https://cheonghakim.github.io/high-tree
 
 ## 📦 Installation
 
