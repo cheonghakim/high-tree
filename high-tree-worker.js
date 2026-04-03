@@ -41,7 +41,8 @@ class TreeWorkerCore {
 
             if (!currentSearch || isMatch || childHasMatch) {
                 result.push({ ...node, level, isMatch });
-                if ((currentSearch && childHasMatch) || (!currentSearch && expandedIds.has(node.id))) {
+                // Auto-expand if child has match OR explicitly expanded
+                if (childHasMatch || (!currentSearch && expandedIds.has(node.id))) {
                     result.push(...tempSubResult);
                 }
                 if (isMatch || childHasMatch) hasMatchInBranch = true;

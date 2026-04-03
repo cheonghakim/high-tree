@@ -26,6 +26,8 @@ export default class VirtualTree {
             draggable: options.draggable || false,
             enableDefaultDragDrop: options.enableDefaultDragDrop !== undefined ? options.enableDefaultDragDrop : true, // default: true
             filter: options.filter || null,
+            editable: options.editable || false,
+            onEdit: options.onEdit || null,
 
             // Worker options
             useWorker: options.useWorker !== undefined ? options.useWorker : true,
@@ -46,6 +48,10 @@ export default class VirtualTree {
             focusedIndex: -1,
             draggingNode: null,
             dragOverNode: null,
+            dragTargetPosition: null, // 'inside', 'before', 'after'
+            editingId: null,
+            lastSelectedId: null,
+            indeterminateIds: new Set(),
             customFilter: this.options.filter,
         };
 
@@ -175,14 +181,11 @@ export default class VirtualTree {
     // Initialize DOM structure and event bindings
     init() {
         this.container.innerHTML = `
-      <div class="flex flex-col border border-slate-200 rounded-xl bg-white shadow-sm overflow-hidden" style="height: ${this.options.height}px" tabindex="0" id="tree-container">
+      <div class="flex flex-col border border-gray-200 rounded-lg bg-white overflow-hidden" style="height: ${this.options.height}px" tabindex="0" id="tree-container">
         <!-- Search Bar -->
-        <div class="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-          <div class="relative flex-1">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="text" id="tree-search" placeholder="노드 이름으로 검색..." class="w-full pl-9 pr-9 py-1.5 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-          </div>
-          <div id="tree-count" class="text-[11px] font-medium text-slate-400 px-2 uppercase tracking-wider">0 items</div>
+        <div class="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+          <input type="text" id="tree-search" placeholder="Search..." class="flex-1 py-1.5 px-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-400 transition-colors">
+          <div id="tree-count" class="text-[11px] text-gray-400 tabular-nums shrink-0">0</div>
         </div>
 
         <!-- Scroll Viewport -->
@@ -228,6 +231,15 @@ export default class VirtualTree {
             if (nodeEl) {
                 const nodeId = nodeEl.dataset.id;
                 this.handleNodeClick(nodeId, e);
+            }
+        });
+
+        // Double click for editing
+        this.contentLayer.addEventListener('dblclick', (e) => {
+            if (!this.options.editable) return;
+            const nodeEl = e.target.closest('[data-id]');
+            if (nodeEl) {
+                this.startEditing(nodeEl.dataset.id);
             }
         });
 
@@ -320,6 +332,9 @@ export default class VirtualTree {
                 }
 
                 this.state.visibleNodes = filteredResult;
+                
+                // Calculate indeterminate states
+                this.updateIndeterminateStates();
 
                 // Set total height
                 const totalHeight = filteredResult.length * this.options.rowHeight;
@@ -345,6 +360,9 @@ export default class VirtualTree {
         const result = [];
         this.flattenFilteredTree(this.state.treeData, 0, result);
         this.state.visibleNodes = result;
+        
+        // Calculate indeterminate states
+        this.updateIndeterminateStates();
 
         // Set total height
         const totalHeight = result.length * this.options.rowHeight;
@@ -396,28 +414,31 @@ export default class VirtualTree {
         // Selection feature
         if (this.options.selectable) {
             if (this.options.multiSelect && (event.ctrlKey || event.metaKey)) {
-                // Multi-select
+                // Multi-select (Ctrl)
                 if (this.state.selectedIds.has(nodeId)) {
                     this.state.selectedIds.delete(nodeId);
-                    // Cascade deselect
-                    if (this.options.cascadeSelect) {
-                        this.cascadeDeselectChildren(node);
-                    }
+                    if (this.options.cascadeSelect) this.cascadeDeselectChildren(node);
                 } else {
                     this.state.selectedIds.add(nodeId);
-                    // Cascade select
-                    if (this.options.cascadeSelect) {
-                        this.cascadeSelectChildren(node);
+                    if (this.options.cascadeSelect) this.cascadeSelectChildren(node);
+                }
+                this.state.lastSelectedId = nodeId;
+            } else if (this.options.multiSelect && event.shiftKey && this.state.lastSelectedId) {
+                // Range-select (Shift)
+                const startIdx = this.state.visibleNodes.findIndex(n => n.id === this.state.lastSelectedId);
+                const endIdx = this.state.visibleNodes.findIndex(n => n.id === nodeId);
+                if (startIdx !== -1 && endIdx !== -1) {
+                    const [min, max] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)];
+                    for (let i = min; i <= max; i++) {
+                        this.state.selectedIds.add(this.state.visibleNodes[i].id);
                     }
                 }
             } else {
                 // Single select
                 this.state.selectedIds.clear();
                 this.state.selectedIds.add(nodeId);
-                // Cascade select
-                if (this.options.cascadeSelect) {
-                    this.cascadeSelectChildren(node);
-                }
+                if (this.options.cascadeSelect) this.cascadeSelectChildren(node);
+                this.state.lastSelectedId = nodeId;
             }
 
             this.state.focusedId = nodeId;
@@ -528,15 +549,23 @@ export default class VirtualTree {
 
     handleDragOver(event, nodeId) {
         if (this.state.draggingNode === nodeId) return;
+        event.preventDefault();
 
-        // Enable drop
-        event.dataTransfer.dropEffect = 'move';
+        const nodeEl = event.target.closest('[data-id]');
+        if (!nodeEl) return;
 
-        // Update state only (no render call to avoid interfering with drop event)
-        if (this.state.dragOverNode !== nodeId) {
+        const rect = nodeEl.getBoundingClientRect();
+        const offsetY = event.clientY - rect.top;
+        const threshold = rect.height / 4;
+
+        let position = 'inside';
+        if (offsetY < threshold) position = 'before';
+        else if (offsetY > rect.height - threshold) position = 'after';
+
+        if (this.state.dragOverNode !== nodeId || this.state.dragTargetPosition !== position) {
             this.state.dragOverNode = nodeId;
+            this.state.dragTargetPosition = position;
 
-            // Optimize rendering with requestAnimationFrame
             if (!this._dragOverRenderScheduled) {
                 this._dragOverRenderScheduled = true;
                 requestAnimationFrame(() => {
@@ -554,51 +583,127 @@ export default class VirtualTree {
         if (draggedNodeId && draggedNodeId !== targetNodeId) {
             const draggedNode = this.findNodeById(draggedNodeId);
             const targetNode = this.findNodeById(targetNodeId);
-            console.log('Found nodes:', { draggedNode, targetNode });
+            const position = this.state.dragTargetPosition || 'inside';
 
             if (draggedNode && targetNode) {
-                // Default drag and drop handling
                 if (this.options.enableDefaultDragDrop) {
-                    console.log('Default drag-drop enabled:', this.options.enableDefaultDragDrop);
-
-                    // Validation: cannot drop onto itself or descendants
                     const isDescendant = this.isNodeDescendant(draggedNode.id, targetNode.id);
-                    console.log('Is descendant?', isDescendant);
-
                     if (!isDescendant) {
-                        // Execute node move
-                        console.log('Removing node:', draggedNode.id);
                         const removed = this.removeNodeFromTree(this.state.treeData, draggedNode.id);
-                        console.log('Removed node:', removed);
-
                         if (removed) {
-                            console.log('Inserting node into:', targetNode.id);
-                            const inserted = this.insertNodeInTree(this.state.treeData, targetNode.id, removed, 'inside');
-                            console.log('Insert result:', inserted);
-
-                            // Explicitly update rendering
+                            this.insertNodeInTree(this.state.treeData, targetNode.id, removed, position);
                             this.updateVisibleNodes();
-                            console.log('✅ Node moved successfully!');
-                        } else {
-                            console.error('❌ Failed to remove node');
                         }
-                    } else {
-                        console.warn('⚠️ Cannot drop node onto its descendant');
                     }
                 }
 
-                // Call custom callback (after default action)
                 if (this.options.onDrop) {
-                    this.options.onDrop(draggedNode, targetNode, 'inside');
+                    this.options.onDrop(draggedNode, targetNode, position);
                 }
-            } else {
-                console.error('❌ Could not find dragged or target node');
             }
         }
 
         this.state.draggingNode = null;
         this.state.dragOverNode = null;
+        this.state.dragTargetPosition = null;
         this.render();
+    }
+
+    // Node editing
+    startEditing(nodeId) {
+        this.state.editingId = nodeId;
+        this.render();
+        const input = this.container.querySelector(`.edit-input[data-id="${nodeId}"]`);
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }
+
+    saveEditing(nodeId, newLabel) {
+        if (!newLabel.trim()) return this.cancelEditing();
+
+        const node = this.findNodeById(nodeId);
+        if (node) {
+            const oldLabel = node.label;
+            node.label = newLabel;
+            this.state.editingId = null;
+
+            if (this.options.onEdit) {
+                this.options.onEdit(node, newLabel, oldLabel);
+            }
+            this.updateVisibleNodes();
+        }
+    }
+
+    cancelEditing() {
+        this.state.editingId = null;
+        this.render();
+    }
+
+    // API: Add node
+    addNode(parentId, newNode) {
+        if (!parentId) {
+            this.state.treeData.push(newNode);
+        } else {
+            const parent = this.findNodeById(parentId);
+            if (parent) {
+                if (!parent.children) parent.children = [];
+                parent.children.push(newNode);
+                parent.hasChildren = true;
+                this.state.expandedIds.add(parentId);
+            }
+        }
+        this.updateVisibleNodes();
+    }
+
+    // API: Remove node
+    removeNode(nodeId) {
+        const removed = this.removeNodeFromTree(this.state.treeData, nodeId);
+        if (removed) {
+            this.state.selectedIds.delete(nodeId);
+            this.state.checkedIds.delete(nodeId);
+            this.state.expandedIds.delete(nodeId);
+            this.updateVisibleNodes();
+        }
+    }
+
+    // API: Scroll to node
+    scrollToNode(nodeId) {
+        // Find index in visible nodes
+        const index = this.state.visibleNodes.findIndex(n => n.id === nodeId);
+        if (index !== -1) {
+            const top = index * this.options.rowHeight;
+            this.viewport.scrollTop = top;
+        } else {
+            // Node might be hidden, try to expand ancestors
+            this.expandPathToNode(nodeId);
+        }
+    }
+
+    expandPathToNode(nodeId) {
+        const path = [];
+        const findPath = (nodes, targetId, currentPath) => {
+            for (const node of nodes) {
+                if (node.id === targetId) return true;
+                if (node.children) {
+                    currentPath.push(node.id);
+                    if (findPath(node.children, targetId, currentPath)) return true;
+                    currentPath.pop();
+                }
+            }
+            return false;
+        };
+
+        if (findPath(this.state.treeData, nodeId, path)) {
+            path.forEach(id => this.state.expandedIds.add(id));
+            this.updateVisibleNodes().then(() => {
+                const index = this.state.visibleNodes.findIndex(n => n.id === nodeId);
+                if (index !== -1) {
+                    this.viewport.scrollTop = index * this.options.rowHeight;
+                }
+            });
+        }
     }
 
     // Keyboard navigation
@@ -685,20 +790,129 @@ export default class VirtualTree {
     getHighlightedText(text) {
         if (!this.state.searchTerm) return text;
         const regex = new RegExp(`(${this.state.searchTerm})`, 'gi');
-        return text.replace(regex, '<mark>$1</mark>');
+        return text.replace(regex, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>');
     }
 
-    // Actual DOM rendering
+    updateIndeterminateStates() {
+        this.state.indeterminateIds.clear();
+        const check = (node) => {
+            if (!node.children || node.children.length === 0) {
+                return this.state.checkedIds.has(node.id) ? 'checked' : 'unchecked';
+            }
+
+            const results = node.children.map(child => check(child));
+            const allChecked = results.every(r => r === 'checked');
+            const allUnchecked = results.every(r => r === 'unchecked');
+
+            if (allChecked) {
+                return 'checked';
+            } else if (allUnchecked) {
+                return 'unchecked';
+            } else {
+                this.state.indeterminateIds.add(node.id);
+                return 'indeterminate';
+            }
+        };
+        this.state.treeData.forEach(check);
+    }
+
+    // Compute a state key for a node — used to skip DOM updates when nothing changed
+    _getNodeStateKey(node) {
+        const isExpanded = this.state.expandedIds.has(node.id) || (this.state.searchTerm && !node.isMatch);
+        const isLoading = this.state.loadingIds.has(node.id);
+        const isSelected = this.state.selectedIds.has(node.id);
+        const isFocused = this.state.focusedId === node.id;
+        const isChecked = this.state.checkedIds.has(node.id);
+        const isIndeterminate = this.state.indeterminateIds ? this.state.indeterminateIds.has(node.id) : false;
+        const isDragOver = this.state.dragOverNode === node.id;
+        const dragPos = this.state.dragTargetPosition;
+        const isEditing = this.state.editingId === node.id;
+        return `${node.label}|${isExpanded}|${isLoading}|${isSelected}|${isFocused}|${isChecked}|${isIndeterminate}|${isDragOver}|${dragPos}|${isEditing}`;
+    }
+
+    // Build HTML string for a single node
+    _buildNodeHTML(node) {
+        const { rowHeight } = this.options;
+        const isExpanded = this.state.expandedIds.has(node.id) || (this.state.searchTerm && !node.isMatch);
+        const isLoading = this.state.loadingIds.has(node.id);
+        const hasChildren = node.children || (this.options.lazy && node.hasChildren);
+        const isSelected = this.state.selectedIds.has(node.id);
+        const isFocused = this.state.focusedId === node.id;
+        const isChecked = this.state.checkedIds.has(node.id);
+        const isIndeterminate = this.state.indeterminateIds ? this.state.indeterminateIds.has(node.id) : false;
+        const isDragOver = this.state.dragOverNode === node.id;
+        const isEditing = this.state.editingId === node.id;
+        const dragPos = this.state.dragTargetPosition;
+
+        let content = '';
+        if (isEditing) {
+            content = `
+                <input type="text" class="edit-input w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none"
+                    data-id="${node.id}" value="${node.label}"
+                    onblur="window.tree.saveEditing('${node.id}', this.value)"
+                    onkeydown="if(event.key==='Enter') window.tree.saveEditing('${node.id}', this.value); if(event.key==='Escape') window.tree.cancelEditing();">
+            `;
+        } else {
+            content = this.options.renderNode
+                ? this.options.renderNode(node, this.state.searchTerm)
+                : `
+        <div class="flex items-center gap-2 overflow-hidden">
+          ${hasChildren
+                    ? `<svg class="w-4 h-4 ${isExpanded ? 'text-gray-500' : 'text-gray-400'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>`
+                    : `<svg class="w-4 h-4 text-slate-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`
+                }
+          <span class="text-sm text-slate-700 select-none truncate">${this.getHighlightedText(node.label)}</span>
+        </div>
+      `;
+        }
+
+        const dropClass = isDragOver ? (dragPos === 'before' ? 'border-t-2 border-t-gray-400' : dragPos === 'after' ? 'border-b-2 border-b-gray-400' : 'bg-gray-50') : '';
+
+        return `
+      <div
+        data-id="${node.id}"
+        data-state-key="${this._getNodeStateKey(node)}"
+        role="treeitem"
+        aria-level="${node.level + 1}"
+        aria-expanded="${hasChildren ? isExpanded : ''}"
+        aria-selected="${isSelected}"
+        class="flex items-center px-2 hover:bg-gray-50 cursor-pointer ${node.isMatch ? 'bg-amber-50/60' : ''} ${isSelected ? 'bg-gray-100' : ''} ${isFocused ? 'ring-1 ring-inset ring-gray-300 z-10' : ''} ${dropClass}"
+        style="height: ${rowHeight}px; padding-left: ${node.level * 20 + 8}px"
+        ${this.options.draggable ? 'draggable="true"' : ''}
+      >
+        ${this.options.checkbox ? `
+          <div class="tree-checkbox mr-2 flex items-center">
+            <input type="checkbox" ${isChecked ? 'checked' : ''}
+              class="w-4 h-4 rounded cursor-pointer accent-gray-700"
+              ${isIndeterminate ? 'data-indeterminate="true"' : ''}
+              onclick="event.stopPropagation()">
+          </div>
+        ` : ''}
+
+        <div class="w-5 h-5 flex items-center justify-center mr-1">
+          ${isLoading
+                ? `<svg class="w-3 h-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`
+                : hasChildren
+                    ? `<svg class="w-3.5 h-3.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${isExpanded ? '<path d="m6 9 6 6 6-6"/>' : '<path d="m9 18 6-6-6-6"/>'}</svg>`
+                    : ''
+            }
+        </div>
+        ${content}
+      </div>
+    `;
+    }
+
+    // Actual DOM rendering — diffs existing nodes instead of replacing everything
     render() {
         const { visibleNodes, scrollTop } = this.state;
         const { rowHeight, height } = this.options;
 
         const startIndex = Math.floor(scrollTop / rowHeight);
         const endIndex = Math.min(startIndex + Math.ceil(height / rowHeight) + 1, visibleNodes.length);
-
         const displayNodes = visibleNodes.slice(startIndex, endIndex);
 
         this.contentLayer.style.transform = `translateY(${startIndex * rowHeight}px)`;
+        this.contentLayer.setAttribute('role', 'tree');
 
         if (displayNodes.length === 0) {
             this.contentLayer.innerHTML = `
@@ -709,53 +923,55 @@ export default class VirtualTree {
             return;
         }
 
-        this.contentLayer.innerHTML = displayNodes.map(node => {
-            const isExpanded = this.state.expandedIds.has(node.id) || (this.state.searchTerm && !node.isMatch);
-            const isLoading = this.state.loadingIds.has(node.id);
-            const hasChildren = node.children || (this.options.lazy && node.hasChildren);
-            const isSelected = this.state.selectedIds.has(node.id);
-            const isFocused = this.state.focusedId === node.id;
-            const isChecked = this.state.checkedIds.has(node.id);
-            const isDragOver = this.state.dragOverNode === node.id;
+        // Build map of currently rendered elements
+        const existingEls = Array.from(this.contentLayer.querySelectorAll('[data-id]'));
+        const existingMap = new Map(existingEls.map(el => [el.dataset.id, el]));
+        const newIds = new Set(displayNodes.map(n => n.id));
 
-            // Custom render function
-            const content = this.options.renderNode
-                ? this.options.renderNode(node, this.state.searchTerm)
-                : `
-          <div class="flex items-center gap-2 overflow-hidden">
-            ${hasChildren
-                    ? `<svg class="w-4 h-4 ${isExpanded ? 'fill-blue-100 text-blue-500' : 'text-slate-400'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>`
-                    : `<svg class="w-4 h-4 text-slate-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`
-                }
-            <span class="text-sm text-slate-700 select-none truncate">${this.getHighlightedText(node.label)}</span>
-          </div>
-        `;
+        // Remove elements that are no longer in the visible window
+        existingEls.forEach(el => {
+            if (!newIds.has(el.dataset.id)) el.remove();
+        });
 
-            return `
-        <div 
-          data-id="${node.id}"
-          class="flex items-center px-2 hover:bg-blue-50/50 cursor-pointer transition-colors ${node.isMatch ? 'bg-blue-50/30' : ''} ${isSelected ? 'bg-blue-100 border-l-2 border-blue-500' : ''} ${isFocused ? 'ring-1 ring-blue-400' : ''} ${isDragOver ? 'bg-green-100' : ''}"
-          style="height: ${rowHeight}px; padding-left: ${node.level * 20 + 8}px"
-          ${this.options.draggable ? 'draggable="true"' : ''}
-        >
-          ${this.options.checkbox ? `
-            <div class="tree-checkbox mr-2">
-              <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer">
-            </div>
-          ` : ''}
-          
-          <div class="w-5 h-5 flex items-center justify-center mr-1">
-            ${isLoading
-                    ? `<svg class="w-3 h-3 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`
-                    : hasChildren
-                        ? `<svg class="w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isExpanded ? '<path d="m6 9 6 6 6-6"/>' : '<path d="m9 18 6-6-6-6"/>'}</svg>`
-                        : ''
+        const tempDiv = document.createElement('div');
+        let refEl = null; // insertion anchor
+
+        displayNodes.forEach(node => {
+            const stateKey = this._getNodeStateKey(node);
+            let el = existingMap.get(node.id);
+
+            if (el) {
+                // Node already in DOM — only replace if state changed
+                if (el.dataset.stateKey !== stateKey) {
+                    tempDiv.innerHTML = this._buildNodeHTML(node);
+                    const newEl = tempDiv.firstElementChild;
+                    el.replaceWith(newEl);
+                    el = newEl;
+                    existingMap.set(node.id, el);
                 }
-          </div>
-          ${content}
-        </div>
-      `;
-        }).join('');
+            } else {
+                // New node — insert into DOM
+                tempDiv.innerHTML = this._buildNodeHTML(node);
+                el = tempDiv.firstElementChild;
+                if (refEl) {
+                    refEl.after(el);
+                } else {
+                    this.contentLayer.prepend(el);
+                }
+                existingMap.set(node.id, el);
+            }
+
+            // Ensure correct order
+            if (refEl && refEl.nextSibling !== el) {
+                refEl.after(el);
+            }
+            refEl = el;
+        });
+
+        // Set indeterminate state on checkboxes (can't be done via HTML attribute)
+        this.contentLayer.querySelectorAll('[data-indeterminate="true"]').forEach(el => {
+            el.indeterminate = true;
+        });
     }
 
     // ========== Public API ==========
@@ -1012,6 +1228,24 @@ export default class VirtualTree {
     // Get all data
     getData() {
         return this.state.treeData;
+    }
+
+    // Export current tree state (expanded, selected, checked)
+    exportState() {
+        return {
+            expandedIds: Array.from(this.state.expandedIds),
+            selectedIds: Array.from(this.state.selectedIds),
+            checkedIds: Array.from(this.state.checkedIds)
+        };
+    }
+
+    // Import tree state
+    importState(state) {
+        if (!state) return;
+        if (state.expandedIds) this.state.expandedIds = new Set(state.expandedIds);
+        if (state.selectedIds) this.state.selectedIds = new Set(state.selectedIds);
+        if (state.checkedIds) this.state.checkedIds = new Set(state.checkedIds);
+        this.updateVisibleNodes();
     }
 
     // Cascade select children (helper method)
