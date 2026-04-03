@@ -1,296 +1,377 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>High-Tree Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
 
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
 
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
 
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #e5e7eb;
-            border-radius: 99px;
-        }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 99px;
+      }
 
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #d1d5db;
-        }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #d1d5db;
+      }
 
-        mark {
-            background: #fef9c3;
-            color: inherit;
-            border-radius: 2px;
-            padding: 0 1px;
-        }
+      mark {
+        background: #fef9c3;
+        color: inherit;
+        border-radius: 2px;
+        padding: 0 1px;
+      }
 
-        .tree-node-container {
-            will-change: transform;
-        }
+      .tree-node-container {
+        will-change: transform;
+      }
 
-        .log-entry {
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 11px;
-            color: #6b7280;
-            background: #f9fafb;
-            border-left: 2px solid #e5e7eb;
-            line-height: 1.5;
-        }
+      .log-entry {
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 11px;
+        color: #6b7280;
+        background: #f9fafb;
+        border-left: 2px solid #e5e7eb;
+        line-height: 1.5;
+      }
 
-        .log-entry.expand  { border-left-color: #6ee7b7; }
-        .log-entry.collapse { border-left-color: #fcd34d; }
-        .log-entry.select  { border-left-color: #a5b4fc; }
-        .log-entry.check   { border-left-color: #f9a8d4; }
+      .log-entry.expand {
+        border-left-color: #6ee7b7;
+      }
+      .log-entry.collapse {
+        border-left-color: #fcd34d;
+      }
+      .log-entry.select {
+        border-left-color: #a5b4fc;
+      }
+      .log-entry.check {
+        border-left-color: #f9a8d4;
+      }
 
-        .btn {
-            padding: 5px 12px;
-            border-radius: 5px;
-            font-size: 13px;
-            font-weight: 450;
-            color: #374151;
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            cursor: pointer;
-            transition: background 0.12s, border-color 0.12s;
-            white-space: nowrap;
-        }
+      .btn {
+        padding: 5px 12px;
+        border-radius: 5px;
+        font-size: 13px;
+        font-weight: 450;
+        color: #374151;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          border-color 0.12s;
+        white-space: nowrap;
+      }
 
-        .btn:hover { background: #f9fafb; border-color: #d1d5db; }
-        .btn:active { background: #f3f4f6; }
-        .btn.accent { background: #111827; color: #fff; border-color: #111827; }
-        .btn.accent:hover { background: #1f2937; border-color: #1f2937; }
+      .btn:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+      }
+      .btn:active {
+        background: #f3f4f6;
+      }
+      .btn.accent {
+        background: #111827;
+        color: #fff;
+        border-color: #111827;
+      }
+      .btn.accent:hover {
+        background: #1f2937;
+        border-color: #1f2937;
+      }
 
-        /* Indeterminate checkbox */
-        input[data-indeterminate="true"]:indeterminate {
-            accent-color: #6366f1;
-        }
+      /* Indeterminate checkbox */
+      input[data-indeterminate="true"]:indeterminate {
+        accent-color: #6366f1;
+      }
 
-        .edit-input {
-            z-index: 10;
-        }
+      .edit-input {
+        z-index: 10;
+      }
 
-        .drop-before { border-top: 2px solid #6366f1; }
-        .drop-after  { border-bottom: 2px solid #6366f1; }
-        .drop-inside { background-color: rgba(99, 102, 241, 0.05); }
+      .drop-before {
+        border-top: 2px solid #6366f1;
+      }
+      .drop-after {
+        border-bottom: 2px solid #6366f1;
+      }
+      .drop-inside {
+        background-color: rgba(99, 102, 241, 0.05);
+      }
     </style>
-</head>
+  </head>
 
-<body class="bg-gray-50 min-h-screen">
-
+  <body class="bg-gray-50 min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-10 space-y-6">
+      <!-- Header -->
+      <header class="mb-2">
+        <h1 class="text-xl font-semibold text-gray-900 tracking-tight">
+          High-Tree
+        </h1>
+        <p class="text-sm text-gray-400 mt-0.5">Virtual tree component demo</p>
+      </header>
 
-        <!-- Header -->
-        <header class="mb-2">
-            <h1 class="text-xl font-semibold text-gray-900 tracking-tight">High-Tree</h1>
-            <p class="text-sm text-gray-400 mt-0.5">Virtual tree component demo</p>
-        </header>
+      <!-- Main Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Left: Tree -->
+        <div class="lg:col-span-2 space-y-3">
+          <!-- Controls -->
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-expand-all" class="btn">Expand all</button>
+            <button id="btn-collapse-all" class="btn">Collapse all</button>
+            <button id="btn-clear-selection" class="btn">
+              Clear selection
+            </button>
+            <button id="btn-get-checked" class="btn">Get checked</button>
+            <button id="btn-filter-folders" class="btn">Folders only</button>
+            <button id="btn-clear-filter" class="btn">Clear filter</button>
+            <button id="btn-scroll-to-last" class="btn">Scroll to node</button>
+            <button id="btn-export-state" class="btn">Export state</button>
+            <button id="btn-import-state" class="btn">Import state</button>
+            <button id="btn-add-root" class="btn accent">Add node</button>
+          </div>
 
-        <!-- Main Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <!-- Tree Component -->
+          <div id="virtual-tree-root"></div>
 
-            <!-- Left: Tree -->
-            <div class="lg:col-span-2 space-y-3">
-
-                <!-- Controls -->
-                <div class="flex flex-wrap gap-2">
-                    <button id="btn-expand-all" class="btn">Expand all</button>
-                    <button id="btn-collapse-all" class="btn">Collapse all</button>
-                    <button id="btn-clear-selection" class="btn">Clear selection</button>
-                    <button id="btn-get-checked" class="btn">Get checked</button>
-                    <button id="btn-filter-folders" class="btn">Folders only</button>
-                    <button id="btn-clear-filter" class="btn">Clear filter</button>
-                    <button id="btn-scroll-to-last" class="btn">Scroll to node</button>
-                    <button id="btn-export-state" class="btn">Export state</button>
-                    <button id="btn-import-state" class="btn">Import state</button>
-                    <button id="btn-add-root" class="btn accent">Add node</button>
-                </div>
-
-                <!-- Tree Component -->
-                <div id="virtual-tree-root"></div>
-
-                <!-- Keyboard hints -->
-                <p class="text-xs text-gray-400">
-                    <span class="font-mono bg-gray-100 px-1 rounded">↑↓</span> navigate &nbsp;
-                    <span class="font-mono bg-gray-100 px-1 rounded">←→</span> expand/collapse &nbsp;
-                    <span class="font-mono bg-gray-100 px-1 rounded">Enter</span> toggle &nbsp;
-                    <span class="font-mono bg-gray-100 px-1 rounded">Space</span> select &nbsp;
-                    <span class="font-mono bg-gray-100 px-1 rounded">Ctrl+Click</span> multi-select
-                </p>
-            </div>
-
-            <!-- Right: Event Log -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200 p-4 sticky top-6">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm font-medium text-gray-700">Event log</span>
-                        <button id="btn-clear-log" class="text-xs text-gray-400 hover:text-gray-600">Clear</button>
-                    </div>
-                    <div id="event-log" class="max-h-[560px] overflow-auto custom-scrollbar space-y-1">
-                        <p class="text-xs text-gray-400 text-center py-10">No events yet</p>
-                    </div>
-                </div>
-            </div>
-
+          <!-- Keyboard hints -->
+          <p class="text-xs text-gray-400">
+            <span class="font-mono bg-gray-100 px-1 rounded">↑↓</span> navigate
+            &nbsp;
+            <span class="font-mono bg-gray-100 px-1 rounded">←→</span>
+            expand/collapse &nbsp;
+            <span class="font-mono bg-gray-100 px-1 rounded">Enter</span> toggle
+            &nbsp;
+            <span class="font-mono bg-gray-100 px-1 rounded">Space</span> select
+            &nbsp;
+            <span class="font-mono bg-gray-100 px-1 rounded">Ctrl+Click</span>
+            multi-select
+          </p>
         </div>
+
+        <!-- Right: Event Log -->
+        <div class="lg:col-span-1">
+          <div
+            class="bg-white rounded-lg border border-gray-200 p-4 sticky top-6"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-gray-700">Event log</span>
+              <button
+                id="btn-clear-log"
+                class="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Clear
+              </button>
+            </div>
+            <div
+              id="event-log"
+              class="max-h-[560px] overflow-auto custom-scrollbar space-y-1"
+            >
+              <p class="text-xs text-gray-400 text-center py-10">
+                No events yet
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script type="module">
-        import VirtualTree from './high-tree.js';
+      import VirtualTree from "./high-tree.js";
 
-        const eventLog = document.getElementById('event-log');
-        let logCount = 0;
+      const eventLog = document.getElementById("event-log");
+      let logCount = 0;
 
-        function addLog(message, type = 'default') {
-            logCount++;
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
-            if (logCount === 1) eventLog.innerHTML = '';
-            eventLog.insertBefore(entry, eventLog.firstChild);
-            if (logCount > 50) eventLog.lastChild?.remove();
-        }
+      function addLog(message, type = "default") {
+        logCount++;
+        const entry = document.createElement("div");
+        entry.className = `log-entry ${type}`;
+        entry.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
+        if (logCount === 1) eventLog.innerHTML = "";
+        eventLog.insertBefore(entry, eventLog.firstChild);
+        if (logCount > 50) eventLog.lastChild?.remove();
+      }
 
-        document.getElementById('btn-clear-log').addEventListener('click', () => {
-            eventLog.innerHTML = '<p class="text-xs text-gray-400 text-center py-10">No events yet</p>';
-            logCount = 0;
-        });
+      document.getElementById("btn-clear-log").addEventListener("click", () => {
+        eventLog.innerHTML =
+          '<p class="text-xs text-gray-400 text-center py-10">No events yet</p>';
+        logCount = 0;
+      });
 
-        const initialData = Array.from({ length: 50 }, (_, i) => ({
-            id: `root-${i}`,
-            label: `Category ${i + 1}`,
-            hasChildren: true,
-            level: 0,
-            type: 'folder'
-        }));
+      const initialData = Array.from({ length: 50 }, (_, i) => ({
+        id: `root-${i}`,
+        label: `Category ${i + 1}`,
+        hasChildren: true,
+        level: 0,
+        type: "folder",
+      }));
 
-        const tree = new VirtualTree(document.getElementById('virtual-tree-root'), {
-            data: initialData,
-            height: 560,
-            rowHeight: 36,
-            lazy: true,
-            selectable: true,
-            multiSelect: true,
-            cascadeSelect: true,
-            checkbox: true,
-            draggable: true,
-            editable: true,
+      const tree = new VirtualTree(
+        document.getElementById("virtual-tree-root"),
+        {
+          data: initialData,
+          height: 560,
+          rowHeight: 36,
+          lazy: true,
+          selectable: true,
+          multiSelect: true,
+          cascadeSelect: true,
+          checkbox: true,
+          draggable: true,
+          editable: true,
 
-            onEdit: (node, newLabel, oldLabel) => {
-                addLog(`Renamed "${oldLabel}" → "${newLabel}"`);
-            },
-            onClick: (node) => {
-                addLog(`Click: ${node.label}`);
-            },
-            onExpand: (node) => {
-                addLog(`Expand: ${node.label}`, 'expand');
-            },
-            onCollapse: (node) => {
-                addLog(`Collapse: ${node.label}`, 'collapse');
-            },
-            onSelect: (nodes) => {
-                addLog(`Selected ${nodes.length} node(s)`, 'select');
-            },
-            onCheck: (nodes) => {
-                addLog(`Checked ${nodes.length} node(s)`, 'check');
-            },
-            onDrop: (dragged, target, pos) => {
-                addLog(`Moved "${dragged.label}" ${pos} "${target.label}"`);
-            },
-            onContextMenu: (node, event) => {
-                addLog(`Right-click: ${node.label}`);
-                alert(`Context menu: ${node.label}`);
-            },
-            onLoadData: async (node) => {
-                await new Promise(r => setTimeout(r, 300));
-                const count = Math.floor(Math.random() * 5) + 1;
-                return Array.from({ length: count }, (_, i) => ({
-                    id: `${node.id}-child-${i}`,
-                    label: `${node.label} / ${i + 1}`,
-                    hasChildren: node.level < 2,
-                    level: node.level + 1,
-                    type: i % 2 === 0 ? 'folder' : 'file'
-                }));
-            },
-            renderNode: (node, searchTerm) => {
-                const highlight = (text) => {
-                    if (!searchTerm) return text;
-                    return text.replace(new RegExp(`(${searchTerm})`, 'gi'), '<mark>$1</mark>');
-                };
-                const isFolder = node.type === 'folder';
-                return `
+          onEdit: (node, newLabel, oldLabel) => {
+            addLog(`Renamed "${oldLabel}" → "${newLabel}"`);
+          },
+          onClick: (node) => {
+            addLog(`Click: ${node.label}`);
+          },
+          onExpand: (node) => {
+            addLog(`Expand: ${node.label}`, "expand");
+          },
+          onCollapse: (node) => {
+            addLog(`Collapse: ${node.label}`, "collapse");
+          },
+          onSelect: (nodes) => {
+            addLog(`Selected ${nodes.length} node(s)`, "select");
+          },
+          onCheck: (nodes) => {
+            addLog(`Checked ${nodes.length} node(s)`, "check");
+          },
+          onDrop: (dragged, target, pos) => {
+            addLog(`Moved "${dragged.label}" ${pos} "${target.label}"`);
+          },
+          onContextMenu: (node, event) => {
+            addLog(`Right-click: ${node.label}`);
+            alert(`Context menu: ${node.label}`);
+          },
+          onLoadData: async (node) => {
+            await new Promise((r) => setTimeout(r, 300));
+            const count = Math.floor(Math.random() * 5) + 1;
+            return Array.from({ length: count }, (_, i) => ({
+              id: `${node.id}-child-${i}`,
+              label: `${node.label} / ${i + 1}`,
+              hasChildren: node.level < 2,
+              level: node.level + 1,
+              type: i % 2 === 0 ? "folder" : "file",
+            }));
+          },
+          renderNode: (node, searchTerm) => {
+            const highlight = (text) => {
+              if (!searchTerm) return text;
+              return text.replace(
+                new RegExp(`(${searchTerm})`, "gi"),
+                "<mark>$1</mark>",
+              );
+            };
+            const isFolder = node.type === "folder";
+            return `
                     <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <svg class="w-3.5 h-3.5 shrink-0 ${isFolder ? 'text-gray-400' : 'text-gray-300'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${isFolder ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                            ${isFolder
+                        <svg class="w-3.5 h-3.5 shrink-0 ${isFolder ? "text-gray-400" : "text-gray-300"}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${isFolder ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
+                            ${
+                              isFolder
                                 ? '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
-                                : '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>'}
+                                : '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>'
+                            }
                         </svg>
                         <span class="text-sm text-gray-700 truncate">${highlight(node.label)}</span>
                     </div>
                 `;
-            }
+          },
+        },
+      );
+
+      document
+        .getElementById("btn-expand-all")
+        .addEventListener("click", async () => {
+          await tree.expandAll();
+          addLog("Expanded all", "expand");
+        });
+      document
+        .getElementById("btn-collapse-all")
+        .addEventListener("click", () => {
+          tree.collapseAll();
+          addLog("Collapsed all", "collapse");
+        });
+      document
+        .getElementById("btn-clear-selection")
+        .addEventListener("click", () => {
+          tree.clearSelection();
+          addLog("Selection cleared", "select");
+        });
+      document
+        .getElementById("btn-get-checked")
+        .addEventListener("click", () => {
+          const checked = tree.getCheckedNodes();
+          addLog(`${checked.length} node(s) checked`, "check");
+          alert(
+            checked.length
+              ? `Checked:\n${checked.map((n) => n.label).join("\n")}`
+              : "No nodes checked",
+          );
+        });
+      document
+        .getElementById("btn-filter-folders")
+        .addEventListener("click", () => {
+          tree.setFilter((node) => node.type === "folder");
+          addLog("Filter: folders only");
+        });
+      document
+        .getElementById("btn-clear-filter")
+        .addEventListener("click", () => {
+          tree.clearFilter();
+          addLog("Filter cleared");
+        });
+      document.getElementById("btn-add-root").addEventListener("click", () => {
+        const id = `new-${Date.now()}`;
+        tree.addNode(null, {
+          id,
+          label: `New node (${new Date().toLocaleTimeString()})`,
+          hasChildren: false,
+          level: 0,
+          type: "file",
+        });
+        addLog(`Added: ${id}`);
+      });
+      document
+        .getElementById("btn-scroll-to-last")
+        .addEventListener("click", () => {
+          tree.scrollToNode("root-9-child-9");
+          addLog("Scroll to: root-9-child-9");
         });
 
-        document.getElementById('btn-expand-all').addEventListener('click', async () => {
-            await tree.expandAll();
-            addLog('Expanded all', 'expand');
+      let savedState = null;
+      document
+        .getElementById("btn-export-state")
+        .addEventListener("click", () => {
+          savedState = tree.exportState();
+          addLog("State exported");
         });
-        document.getElementById('btn-collapse-all').addEventListener('click', () => {
-            tree.collapseAll();
-            addLog('Collapsed all', 'collapse');
-        });
-        document.getElementById('btn-clear-selection').addEventListener('click', () => {
-            tree.clearSelection();
-            addLog('Selection cleared', 'select');
-        });
-        document.getElementById('btn-get-checked').addEventListener('click', () => {
-            const checked = tree.getCheckedNodes();
-            addLog(`${checked.length} node(s) checked`, 'check');
-            alert(checked.length ? `Checked:\n${checked.map(n => n.label).join('\n')}` : 'No nodes checked');
-        });
-        document.getElementById('btn-filter-folders').addEventListener('click', () => {
-            tree.setFilter(node => node.type === 'folder');
-            addLog('Filter: folders only');
-        });
-        document.getElementById('btn-clear-filter').addEventListener('click', () => {
-            tree.clearFilter();
-            addLog('Filter cleared');
-        });
-        document.getElementById('btn-add-root').addEventListener('click', () => {
-            const id = `new-${Date.now()}`;
-            tree.addNode(null, { id, label: `New node (${new Date().toLocaleTimeString()})`, hasChildren: false, level: 0, type: 'file' });
-            addLog(`Added: ${id}`);
-        });
-        document.getElementById('btn-scroll-to-last').addEventListener('click', () => {
-            tree.scrollToNode('root-9-child-9');
-            addLog('Scroll to: root-9-child-9');
+      document
+        .getElementById("btn-import-state")
+        .addEventListener("click", () => {
+          if (savedState) {
+            tree.importState(savedState);
+            addLog("State imported", "select");
+          } else alert("Export state first.");
         });
 
-        let savedState = null;
-        document.getElementById('btn-export-state').addEventListener('click', () => {
-            savedState = tree.exportState();
-            addLog('State exported');
-        });
-        document.getElementById('btn-import-state').addEventListener('click', () => {
-            if (savedState) { tree.importState(savedState); addLog('State imported', 'select'); }
-            else alert('Export state first.');
-        });
-
-        window.tree = tree;
+      window.tree = tree;
     </script>
-
-</body>
+  </body>
 </html>
