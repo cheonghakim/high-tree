@@ -67,7 +67,9 @@ export default class VirtualTree {
         this.init();
     }
 
-    // Initialize Web Worker
+    /**
+     * Initializes the Web Worker for off-thread tree operations.
+     */
     initWorker() {
         if (!this.options.useWorker || typeof Worker === 'undefined') {
             console.log('[high-tree] Worker disabled or not supported, using synchronous mode');
@@ -214,32 +216,129 @@ export default class VirtualTree {
             this.viewport.scrollTop = 0;
         });
 
-        // Node click (event delegation)
+        // Definitive Click Handling (Single vs Double-Click Timer)
+        this._clickTimer = null;
+        this._lastClickId = null;
+
         this.contentLayer.addEventListener('click', (e) => {
-            // Checkbox click
+            const nodeEl = e.target.closest('[data-id]');
+            if (!nodeEl) return;
+            
+            const nodeId = String(nodeEl.dataset.id);
+
+            // Priority 1: Checkbox & Toggle Arrow (IMMEDIATE)
             if (e.target.closest('.tree-checkbox')) {
-                const nodeEl = e.target.closest('[data-id]');
-                if (nodeEl) {
-                    e.stopPropagation();
-                    this.handleCheckboxClick(nodeEl.dataset.id, e);
+                e.stopPropagation();
+                this.handleCheckboxClick(nodeId);
+                return;
+            }
+            if (e.target.closest('.w-5.h-5')) {
+                e.stopPropagation();
+                this.toggleNode(nodeId);
+                return;
+            }
+
+            // Priority 2: Edit Buttons (IMMEDIATE)
+            if (e.target.closest('.tree-edit-save')) {
+                e.stopPropagation();
+                this.saveEditing(nodeId, nodeEl.querySelector('.tree-edit-input')?.value || '');
+                return;
+            }
+            if (e.target.closest('.tree-edit-cancel')) {
+                e.stopPropagation();
+                this.cancelEditing();
+                return;
+            }
+            if (e.target.closest('.tree-edit-input')) {
+                e.stopPropagation();
+                return;
+            }
+
+            // Priority 3: Label Interactions (Timer-based)
+            if (this.options.editable) {
+                if (this._lastClickId === nodeId && this._clickTimer) {
+                    // Double Click!
+                    clearTimeout(this._clickTimer);
+                    this._clickTimer = null;
+                    this._lastClickId = null;
+                    this.startEditing(nodeId);
+                } else {
+                    // Start Single Click Timer
+                    if (this._clickTimer) clearTimeout(this._clickTimer);
+                    this._lastClickId = nodeId;
+                    this._clickTimer = setTimeout(() => {
+                        this._clickTimer = null;
+                        this._lastClickId = null;
+                        this.handleNodeClick(nodeId, e);
+                    }, 250);
                 }
                 return;
             }
 
-            // Node click
-            const nodeEl = e.target.closest('[data-id]');
-            if (nodeEl) {
-                const nodeId = nodeEl.dataset.id;
-                this.handleNodeClick(nodeId, e);
-            }
+            // Default: Selection / Click
+            this.handleNodeClick(nodeId, e);
         });
 
-        // Double click for editing
-        this.contentLayer.addEventListener('dblclick', (e) => {
-            if (!this.options.editable) return;
-            const nodeEl = e.target.closest('[data-id]');
-            if (nodeEl) {
-                this.startEditing(nodeEl.dataset.id);
+        // Keyboard navigation & Editing support
+        this.viewport.addEventListener('keydown', (e) => {
+            if (this.state.editingId) {
+                const isEnter = e.key === 'Enter';
+                const isEsc = e.key === 'Escape';
+                if (isEnter || isEsc) {
+                    const input = this.viewport.querySelector('.tree-edit-input');
+                    if (input) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isEnter) {
+                            this.saveEditing(this.state.editingId, input.value);
+                        } else {
+                            this.cancelEditing();
+                        }
+                    }
+                }
+                return;
+            }
+
+            const { focusedId, visibleNodes } = this.state;
+            if (!focusedId) return;
+
+            const currentIndex = visibleNodes.findIndex(n => n.id === focusedId);
+            if (currentIndex === -1) return;
+            
+            const node = visibleNodes[currentIndex];
+            const hasChildren = node.children || (this.options.lazy && node.hasChildren);
+            const isExpanded = this.state.expandedIds.has(node.id);
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.focusPreviousNode();
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.focusNextNode();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (hasChildren && !isExpanded) {
+                        this.toggleNode(focusedId);
+                    } else if (hasChildren && isExpanded) {
+                        this.focusNextNode();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (hasChildren && isExpanded) {
+                        this.toggleNode(focusedId);
+                    } else {
+                        this.focusParentNode();
+                    }
+                    break;
+                case ' ':
+                case 'Enter':
+                    e.preventDefault();
+                    this.toggleNode(focusedId);
+                    break;
             }
         });
 
@@ -288,13 +387,9 @@ export default class VirtualTree {
             });
         }
 
-        // Keyboard navigation
-        this.treeContainer.addEventListener('keydown', (e) => {
-            this.handleKeyDown(e);
-        });
-
-        this.updateVisibleNodes();
-    }
+ 
+         this.updateVisibleNodes();
+     }
 
     // State change function
     setState(newState) {
@@ -476,36 +571,22 @@ export default class VirtualTree {
                     };
                     this.state.treeData = updateRecursive(this.state.treeData);
                     this.state.expandedIds.add(nodeId);
-
-                    // If parent is checked, check all newly loaded children
-                    if (this.options.checkbox && this.state.checkedIds.has(nodeId)) {
-                        const checkNewChildren = (children) => {
-                            children.forEach(child => {
-                                this.state.checkedIds.add(child.id);
-                                if (child.children) {
-                                    checkNewChildren(child.children);
-                                }
-                            });
-                        };
-                        checkNewChildren(newChildren);
-                    }
-
-                    // If parent is selected and cascadeSelect is enabled, select all newly loaded children
-                    if (this.options.selectable && this.options.cascadeSelect && this.state.selectedIds.has(nodeId)) {
-                        const selectNewChildren = (children) => {
-                            children.forEach(child => {
-                                this.state.selectedIds.add(child.id);
-                                if (child.children) {
-                                    selectNewChildren(child.children);
-                                }
-                            });
-                        };
-                        selectNewChildren(newChildren);
-                    }
-
                     if (this.options.onExpand) {
                         this.options.onExpand(node);
                     }
+
+                    // Cascade check inherit
+                    if (this.options.checkbox && this.state.checkedIds.has(nodeId)) {
+                        const checkRecursive = (children) => {
+                            children.forEach(c => {
+                                this.state.checkedIds.add(String(c.id));
+                                if (c.children) checkRecursive(c.children);
+                            });
+                        };
+                        checkRecursive(newChildren);
+                    }
+
+                    this.setState({});
                 } finally {
                     this.state.loadingIds.delete(nodeId);
                     this.setState({});
@@ -520,24 +601,93 @@ export default class VirtualTree {
         }
     }
 
-    // Checkbox click handler
-    handleCheckboxClick(nodeId, event) {
+    /**
+     * Toggles expansion state of a node
+     */
+    toggleNode(nodeId) {
+        if (this.state.expandedIds.has(nodeId)) {
+            this.collapseNode(nodeId);
+        } else {
+            this.expandNode(nodeId);
+        }
+    }
+
+    /**
+     * Handle checkbox click event.
+     * Toggles node and children, then updates ancestors.
+     */
+    handleCheckboxClick(nodeId) {
         if (!this.options.checkbox) return;
 
-        const isChecked = this.state.checkedIds.has(nodeId);
+        // Ensure ID is a string for consistency
+        const id = String(nodeId);
+        const node = this.findNodeById(id);
+        if (!node) return;
 
-        if (isChecked) {
-            this.uncheckNode(nodeId, true);
-        } else {
-            this.checkNode(nodeId, true);
-        }
+        const willCheck = !this.state.checkedIds.has(id);
+        
+        // Cascade down to children
+        this._toggleNodeCheckedRecursive(node, willCheck);
+        
+        // Propagate up to ancestors
+        this._updateAncestorsState(id);
 
         if (this.options.onCheck) {
             this.options.onCheck(this.getCheckedNodes());
         }
 
-        // Explicitly render to update UI
         this.render();
+    }
+
+    /**
+     * Recursively toggles checked state for a node and all its children.
+     * @private
+     */
+    _toggleNodeCheckedRecursive(node, checked) {
+        if (checked) {
+            this.state.checkedIds.add(String(node.id));
+        } else {
+            this.state.checkedIds.delete(String(node.id));
+        }
+        this.state.indeterminateIds.delete(String(node.id));
+
+        if (node.children) {
+            node.children.forEach(child => this._toggleNodeCheckedRecursive(child, checked));
+        }
+    }
+
+    /**
+     * Updates parent indeterminate and checked states based on children.
+     * @private
+     */
+    _updateAncestorsState(nodeId) {
+        const parent = this.findParentNode(String(nodeId));
+        if (!parent) return;
+
+        const children = parent.children || [];
+        if (children.length === 0) return;
+
+        let checkedCount = 0;
+        let indeterminateCount = 0;
+
+        children.forEach(c => {
+            if (this.state.checkedIds.has(String(c.id))) checkedCount++;
+            else if (this.state.indeterminateIds.has(String(c.id))) indeterminateCount++;
+        });
+
+        const pId = String(parent.id);
+        if (checkedCount === children.length) {
+            this.state.checkedIds.add(pId);
+            this.state.indeterminateIds.delete(pId);
+        } else if (checkedCount > 0 || indeterminateCount > 0) {
+            this.state.checkedIds.delete(pId);
+            this.state.indeterminateIds.add(pId);
+        } else {
+            this.state.checkedIds.delete(pId);
+            this.state.indeterminateIds.delete(pId);
+        }
+
+        this._updateAncestorsState(pId);
     }
 
     // Drag and drop handlers
@@ -609,11 +759,13 @@ export default class VirtualTree {
         this.render();
     }
 
-    // Node editing
+    /**
+     * Activates edit mode for a specific node.
+     */
     startEditing(nodeId) {
         this.state.editingId = nodeId;
         this.render();
-        const input = this.container.querySelector(`.edit-input[data-id="${nodeId}"]`);
+        const input = this.container.querySelector(`.tree-edit-input[data-id="${nodeId}"]`);
         if (input) {
             input.focus();
             input.select();
@@ -796,8 +948,9 @@ export default class VirtualTree {
     updateIndeterminateStates() {
         this.state.indeterminateIds.clear();
         const check = (node) => {
+            const id = String(node.id);
             if (!node.children || node.children.length === 0) {
-                return this.state.checkedIds.has(node.id) ? 'checked' : 'unchecked';
+                return this.state.checkedIds.has(id) ? 'checked' : 'unchecked';
             }
 
             const results = node.children.map(child => check(child));
@@ -805,30 +958,38 @@ export default class VirtualTree {
             const allUnchecked = results.every(r => r === 'unchecked');
 
             if (allChecked) {
+                this.state.checkedIds.add(id);
                 return 'checked';
             } else if (allUnchecked) {
+                this.state.checkedIds.delete(id);
                 return 'unchecked';
             } else {
-                this.state.indeterminateIds.add(node.id);
+                this.state.checkedIds.delete(id);
+                this.state.indeterminateIds.add(id);
                 return 'indeterminate';
             }
         };
         this.state.treeData.forEach(check);
     }
 
-    // Compute a state key for a node — used to skip DOM updates when nothing changed
+    /**
+     * Generates a unique state key for a node to determine if re-rendering is needed.
+     * @private
+     */
     _getNodeStateKey(node) {
         const isExpanded = this.state.expandedIds.has(node.id) || (this.state.searchTerm && !node.isMatch);
         const isLoading = this.state.loadingIds.has(node.id);
         const isSelected = this.state.selectedIds.has(node.id);
         const isFocused = this.state.focusedId === node.id;
-        const isChecked = this.state.checkedIds.has(node.id);
-        const isIndeterminate = this.state.indeterminateIds ? this.state.indeterminateIds.has(node.id) : false;
+        const isChecked = this.state.checkedIds.has(String(node.id));
+        const isIndeterminate = this.state.indeterminateIds.has(String(node.id));
         const isDragOver = this.state.dragOverNode === node.id;
         const dragPos = this.state.dragTargetPosition;
         const isEditing = this.state.editingId === node.id;
+
         return `${node.label}|${isExpanded}|${isLoading}|${isSelected}|${isFocused}|${isChecked}|${isIndeterminate}|${isDragOver}|${dragPos}|${isEditing}`;
     }
+
 
     // Build HTML string for a single node
     _buildNodeHTML(node) {
@@ -847,10 +1008,16 @@ export default class VirtualTree {
         let content = '';
         if (isEditing) {
             content = `
-                <input type="text" class="edit-input w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none"
-                    data-id="${node.id}" value="${node.label}"
-                    onblur="window.tree.saveEditing('${node.id}', this.value)"
-                    onkeydown="if(event.key==='Enter') window.tree.saveEditing('${node.id}', this.value); if(event.key==='Escape') window.tree.cancelEditing();">
+                <div class="flex items-center gap-1 flex-1 min-w-[120px] mr-2">
+                    <input type="text" class="tree-edit-input flex-1 min-w-[150px] px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none"
+                        data-id="${node.id}" value="${node.label}">
+                    <button class="tree-edit-save p-1 shrink-0 text-green-600 hover:bg-green-50 rounded transition-colors" title="Save">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button class="tree-edit-cancel p-1 shrink-0 text-red-600 hover:bg-red-50 rounded transition-colors" title="Cancel">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
             `;
         } else {
             content = this.options.renderNode
@@ -865,41 +1032,40 @@ export default class VirtualTree {
         </div>
       `;
         }
-
+ 
         const dropClass = isDragOver ? (dragPos === 'before' ? 'border-t-2 border-t-gray-400' : dragPos === 'after' ? 'border-b-2 border-b-gray-400' : 'bg-gray-50') : '';
-
+ 
         return `
-      <div
-        data-id="${node.id}"
-        data-state-key="${this._getNodeStateKey(node)}"
-        role="treeitem"
-        aria-level="${node.level + 1}"
-        aria-expanded="${hasChildren ? isExpanded : ''}"
-        aria-selected="${isSelected}"
-        class="flex items-center px-2 hover:bg-gray-50 cursor-pointer ${node.isMatch ? 'bg-amber-50/60' : ''} ${isSelected ? 'bg-gray-100' : ''} ${isFocused ? 'ring-1 ring-inset ring-gray-300 z-10' : ''} ${dropClass}"
-        style="height: ${rowHeight}px; padding-left: ${node.level * 20 + 8}px"
-        ${this.options.draggable ? 'draggable="true"' : ''}
-      >
-        ${this.options.checkbox ? `
-          <div class="tree-checkbox mr-2 flex items-center">
-            <input type="checkbox" ${isChecked ? 'checked' : ''}
-              class="w-4 h-4 rounded cursor-pointer accent-gray-700"
-              ${isIndeterminate ? 'data-indeterminate="true"' : ''}
-              onclick="event.stopPropagation()">
-          </div>
-        ` : ''}
-
-        <div class="w-5 h-5 flex items-center justify-center mr-1">
-          ${isLoading
+       <div
+         data-id="${node.id}"
+         data-state-key="${this._getNodeStateKey(node)}"
+         role="treeitem"
+         aria-level="${node.level + 1}"
+         aria-expanded="${hasChildren ? isExpanded : ''}"
+         aria-selected="${isSelected}"
+         class="flex items-center px-2 hover:bg-gray-50 cursor-pointer ${node.isMatch ? 'bg-amber-50/60' : ''} ${isSelected ? 'bg-gray-100' : ''} ${isFocused ? 'ring-1 ring-inset ring-gray-300 z-10' : ''} ${dropClass}"
+         style="height: ${rowHeight}px; padding-left: ${node.level * 20 + 8}px"
+         ${this.options.draggable ? 'draggable="true"' : ''}
+       >
+         ${this.options.checkbox ? `
+           <div class="tree-checkbox mr-2 flex items-center">
+             <input type="checkbox" ${isChecked ? 'checked' : ''}
+               class="w-4 h-4 rounded cursor-pointer accent-gray-700"
+               ${isIndeterminate ? 'data-indeterminate="true"' : ''}>
+           </div>
+         ` : ''}
+ 
+         <div class="w-5 h-5 flex items-center justify-center mr-1">
+           ${isLoading
                 ? `<svg class="w-3 h-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`
                 : hasChildren
                     ? `<svg class="w-3.5 h-3.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${isExpanded ? '<path d="m6 9 6 6 6-6"/>' : '<path d="m9 18 6-6-6-6"/>'}</svg>`
                     : ''
             }
-        </div>
-        ${content}
-      </div>
-    `;
+         </div>
+         ${content}
+       </div>
+    `.trim();
     }
 
     // Actual DOM rendering — diffs existing nodes instead of replacing everything
@@ -976,13 +1142,33 @@ export default class VirtualTree {
 
     // ========== Public API ==========
 
-    // Find node by ID
+    /**
+     * Recursively find a node by ID
+     */
     findNodeById(nodeId) {
         const find = (nodes) => {
             for (const n of nodes) {
                 if (n.id === nodeId) return n;
                 if (n.children) {
                     const found = find(n.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        return find(this.state.treeData);
+    }
+
+    /**
+     * Find parent node of a specific node
+     */
+    findParentNode(nodeId) {
+        const id = String(nodeId);
+        const find = (nodes, parent = null) => {
+            for (const n of nodes) {
+                if (String(n.id) === id) return parent;
+                if (n.children) {
+                    const found = find(n.children, n);
                     if (found) return found;
                 }
             }
@@ -1149,57 +1335,36 @@ export default class VirtualTree {
         this.render();
     }
 
-    // Check node
     checkNode(nodeId, cascade = false) {
         if (!this.options.checkbox) return;
-
-        this.state.checkedIds.add(nodeId);
+        const node = this.findNodeById(nodeId);
+        if (!node) return;
 
         if (cascade) {
-            const node = this.findNodeById(nodeId);
-            if (node && node.children) {
-                const checkChildren = (children) => {
-                    children.forEach(child => {
-                        this.state.checkedIds.add(child.id);
-                        if (child.children) {
-                            checkChildren(child.children);
-                        }
-                    });
-                };
-                checkChildren(node.children);
-            }
+            this._toggleNodeCheckedRecursive(node, true);
+            this._updateAncestorsState(nodeId);
+        } else {
+            this.state.checkedIds.add(nodeId);
         }
-
-        // Don't render here, let the caller handle it
     }
 
-    // Uncheck node
     uncheckNode(nodeId, cascade = false) {
         if (!this.options.checkbox) return;
-
-        this.state.checkedIds.delete(nodeId);
+        const node = this.findNodeById(nodeId);
+        if (!node) return;
 
         if (cascade) {
-            const node = this.findNodeById(nodeId);
-            if (node && node.children) {
-                const uncheckChildren = (children) => {
-                    children.forEach(child => {
-                        this.state.checkedIds.delete(child.id);
-                        if (child.children) {
-                            uncheckChildren(child.children);
-                        }
-                    });
-                };
-                uncheckChildren(node.children);
-            }
+            this._toggleNodeCheckedRecursive(node, false);
+            this._updateAncestorsState(nodeId);
+        } else {
+            this.state.checkedIds.delete(nodeId);
         }
-
-        // Don't render here, let the caller handle it
     }
 
-    // Get checked nodes
     getCheckedNodes() {
-        return Array.from(this.state.checkedIds).map(id => this.findNodeById(id)).filter(Boolean);
+        return Array.from(this.state.checkedIds)
+            .map(id => this.findNodeById(id))
+            .filter(Boolean);
     }
 
     // Set filter
@@ -1211,6 +1376,7 @@ export default class VirtualTree {
     // Clear filter
     clearFilter() {
         this.state.customFilter = null;
+        this.state.searchTerm = '';
         this.updateVisibleNodes();
     }
 

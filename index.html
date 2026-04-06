@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>High-Tree Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -119,11 +120,32 @@
   <body class="bg-gray-50 min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-10 space-y-6">
       <!-- Header -->
-      <header class="mb-2">
-        <h1 class="text-xl font-semibold text-gray-900 tracking-tight">
-          High-Tree
-        </h1>
-        <p class="text-sm text-gray-400 mt-0.5">Virtual tree component demo</p>
+      <header class="mb-4">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm"
+          >
+            <svg
+              class="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path
+                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-slate-900 tracking-tight">
+              High-Tree
+            </h1>
+            <p class="text-sm text-slate-500">
+              Performance-optimized virtual tree component
+            </p>
+          </div>
+        </div>
       </header>
 
       <!-- Main Grid -->
@@ -209,17 +231,17 @@
 
       document.getElementById("btn-clear-log").addEventListener("click", () => {
         eventLog.innerHTML =
-          '<p class="text-xs text-gray-400 text-center py-10">No events yet</p>';
+          '<p class="text-xs text-slate-400 text-center py-10">Waiting for events...</p>';
         logCount = 0;
       });
 
-      const initialData = Array.from({ length: 50 }, (_, i) => ({
-        id: `root-${i}`,
-        label: `Category ${i + 1}`,
-        hasChildren: true,
-        level: 0,
-        type: "folder",
-      }));
+      const initialData = [
+        { id: 'src', label: 'src', type: 'folder', hasChildren: true, level: 0 },
+        { id: 'assets', label: 'assets', type: 'folder', hasChildren: true, level: 0 },
+        { id: 'package.json', label: 'package.json', type: 'file', level: 0 },
+        { id: 'README.md', label: 'README.md', type: 'file', level: 0 },
+        { id: 'tsconfig.json', label: 'tsconfig.json', type: 'file', level: 0 }
+      ];
 
       const tree = new VirtualTree(
         document.getElementById("virtual-tree-root"),
@@ -261,37 +283,46 @@
             alert(`Context menu: ${node.label}`);
           },
           onLoadData: async (node) => {
-            await new Promise((r) => setTimeout(r, 300));
-            const count = Math.floor(Math.random() * 5) + 1;
-            return Array.from({ length: count }, (_, i) => ({
-              id: `${node.id}-child-${i}`,
-              label: `${node.label} / ${i + 1}`,
-              hasChildren: node.level < 2,
-              level: node.level + 1,
-              type: i % 2 === 0 ? "folder" : "file",
-            }));
+            await new Promise((r) => setTimeout(r, 400));
+            if (node.id === 'src') {
+              return [
+                { id: 'src-components', label: 'components', type: 'folder', hasChildren: true, level: 1 },
+                { id: 'src-utils', label: 'utils', type: 'folder', hasChildren: true, level: 1 },
+                { id: 'src-App.js', label: 'App.js', type: 'file', level: 1 }
+              ];
+            }
+            if (node.id === 'src-components') {
+              return [
+                { id: 'src-components-Tree.js', label: 'Tree.js', type: 'file', level: 2 },
+                { id: 'src-components-Node.js', label: 'Node.js', type: 'file', level: 2 }
+              ];
+            }
+            if (node.id === 'assets') {
+              return [
+                { id: 'assets-images', label: 'images', type: 'folder', hasChildren: true, level: 1 },
+                { id: 'assets-fonts', label: 'fonts', type: 'folder', hasChildren: true, level: 1 }
+              ];
+            }
+            return [];
           },
           renderNode: (node, searchTerm) => {
             const highlight = (text) => {
               if (!searchTerm) return text;
-              return text.replace(
-                new RegExp(`(${searchTerm})`, "gi"),
-                "<mark>$1</mark>",
-              );
+              const regex = new RegExp(`(${searchTerm})`, "gi");
+              return text.replace(regex, '<mark class="bg-indigo-100 text-indigo-900 rounded-px p-0.5">$1</mark>');
             };
-            const isFolder = node.type === "folder";
+            
+            const isFolder = node.children || node.hasChildren;
+            
             return `
                     <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <svg class="w-3.5 h-3.5 shrink-0 ${isFolder ? "text-gray-400" : "text-gray-300"}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${isFolder ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
-                            ${
-                              isFolder
-                                ? '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
-                                : '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>'
-                            }
-                        </svg>
-                        <span class="text-sm text-gray-700 truncate">${highlight(node.label)}</span>
+                        ${isFolder 
+                            ? '<svg class="w-4 h-4 text-indigo-500/80 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' 
+                            : '<svg class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+                        }
+                        <span class="text-sm text-slate-700 truncate font-medium">${highlight(node.label)}</span>
                     </div>
-                `;
+                `.trim();
           },
         },
       );
@@ -335,6 +366,7 @@
         .getElementById("btn-clear-filter")
         .addEventListener("click", () => {
           tree.clearFilter();
+          document.getElementById("tree-search").value = "";
           addLog("Filter cleared");
         });
       document.getElementById("btn-add-root").addEventListener("click", () => {
@@ -371,7 +403,7 @@
           } else alert("Export state first.");
         });
 
-      window.tree = tree;
+      // Tree instance initialized
     </script>
   </body>
 </html>

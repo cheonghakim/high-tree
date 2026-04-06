@@ -1,25 +1,31 @@
 
 # 🌳 High-Tree
 
-A lightweight, high-performance virtual tree component for JavaScript with comprehensive features and zero dependencies.
+A professional, high-performance virtual tree component for modern web applications. Zero dependencies, lightweight, and extensible.
 
 [![npm version](https://img.shields.io/npm/v/high-tree.svg)](https://www.npmjs.com/package/high-tree)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ Features
 
-- 🚀 **Virtual Scrolling** - Renders only visible nodes for blazing fast performance with 10,000+ nodes
-- ⚡ **Web Worker Support** - Offloads CPU-intensive operations to background thread for smooth UI (NEW!)
-- 🔍 **Built-in Search** - Real-time search with instant highlighting
-- ⚡ **Lazy Loading** - Load child nodes on demand to optimize initial load time
-- 🎯 **Event Callbacks** - Complete control with onClick, onExpand, onCollapse, onSelect, onCheck, onDrop, onContextMenu
-- ☑️ **Checkbox Mode** - Full support with cascade checking (parent checks all children)
-- 🖱️ **Selection** - Single or multi-select with Ctrl/Cmd+Click
-- 🎨 **Drag & Drop** - Built-in drag-and-drop with visual feedback
-- ⌨️ **Keyboard Navigation** - Full accessibility with arrow keys, Enter, and Space
-- 🔬 **Custom Filtering** - Programmatically filter nodes by any criteria
-- 🎭 **Custom Rendering** - Complete control over node appearance
-- 📦 **Zero Dependencies** - Pure vanilla JavaScript
+- 🚀 **Virtual Scrolling** - Efficiently handles 10,000+ nodes by rendering only visible elements.
+- ⚡ **Web Worker Support** - Offloads heavy tree operations to a background thread to maintain UI responsiveness.
+- 🔍 **Persistent Editing** - Robust double-click editing with dedicated Save/Cancel controls and keyboard support.
+- ⚡ **Lazy Loading** - On-demand node loading for optimal performance with massive datasets.
+- 🎯 **Deep Event System** - Comprehensive callbacks: `onClick`, `onExpand`, `onCollapse`, `onSelect`, `onCheck`, `onDrop`, `onContextMenu`.
+- ☑️ **Hierarchical Checkboxes** - Full support for indeterminate states and cascaded checking.
+- 🖱️ **Multi-Selection** - Flexible selection modes including Ctrl/Cmd and Shift-range selection.
+- 🔥 **High Performance**: Optimized virtual scroll for 100,000+ nodes.
+- ⚡ **Zero Dependency**: Pure Vanilla JavaScript and CSS.
+- 🎨 **Modern UX**: Tailwind CSS integration, smooth animations.
+- 📝 **Advanced Node Editing**: 
+    - **Persistent Edit Mode**: Double-click to start. Clicking inside the input field won't exit the mode.
+    - **Explicit Controls**: On-row Save (V) and Cancel (X) buttons for clear user intent.
+    - **Keyboard Shortcuts**: `Enter` to save, `Escape` to cancel while editing.
+- 🛠️ **Fully Customizable**: Support for custom node rendering and flexible event callbacks.
+- 🔍 **Real-time Search**: Instant tree filtering with match highlighting.
+- 🏗️ **Tree CRUD**: Simple APIs for nodes addition, deletion, and movement.
+- 🖱️ **Drag & Drop**: Advanced D&D with before/after/inside indicators.
 - 🌐 **Multiple Formats** - ES modules and UMD support
 - 📘 **TypeScript Ready** - Full TypeScript definitions included
 
@@ -339,11 +345,13 @@ When the tree has focus:
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Navigate up/down |
-| `←` / `→` | Collapse/Expand focused node |
-| `Enter` | Toggle expand/collapse |
-| `Space` | Select focused node (if selectable) |
-| `Ctrl` + `Click` | Multi-select (if multiSelect enabled) |
+| `↑` / `↓` | Navigate between visible nodes |
+| `←` / `→` | Collapse/Expand the focused node |
+| `Enter` | Toggle expansion or save current edit |
+| `Space` | Select/check the focused node |
+| `Esc` | Cancel current edit mode |
+| `Ctrl` + `Click` | Toggle selection for multiple nodes |
+| `Shift` + `Click` | Select a range of nodes |
 
 ## 🎨 Styling
 
@@ -407,7 +415,7 @@ Found a bug? Please [open an issue](https://github.com/cheonghakim/high-tree/iss
 
 ## 🙏 Acknowledgments
 
-Built with ❤️ using pure vanilla JavaScript and modern web standards.
+Built for performance and flexibility using modern web standards.
 
 ---
 

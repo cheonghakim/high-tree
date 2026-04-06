@@ -1,18 +1,18 @@
 /**
- * High-Tree Web Worker
- * Handles CPU-intensive tree operations off the main thread
+ * Web Worker for the High-Tree component.
+ * Performs computationally expensive tree flattening and search operations off-thread.
  */
 
 class TreeWorkerCore {
     /**
-     * Flatten tree and apply filtering/search
-     * @param {Array} nodes - Tree nodes
-     * @param {number} level - Current depth level
-     * @param {Array} result - Result accumulator
-     * @param {string} searchTerm - Search query
-     * @param {Set} expandedIds - Set of expanded node IDs
-     * @param {Array} customFilterRules - Serializable filter rules (not functions)
-     * @returns {boolean} hasMatchInBranch
+     * Flattens the tree structure and applies filtering/search logic.
+     * @param {Array} nodes - Source tree nodes.
+     * @param {number} level - Current nesting level.
+     * @param {Array} result - Accumulator for flattened nodes.
+     * @param {string} searchTerm - Search query to match labels against.
+     * @param {Set} expandedIds - Map of nodes to be expanded.
+     * @param {Array} customFilterRules - Serialization-friendly filter rules.
+     * @returns {boolean} True if any node in this branch matches the search criteria.
      */
     flattenFilteredTree(nodes, level = 0, result = [], searchTerm = '', expandedIds = new Set(), customFilterRules = null) {
         let hasMatchInBranch = false;
