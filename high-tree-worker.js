@@ -243,6 +243,84 @@ self.onmessage = function (e) {
                 });
                 break;
 
+            case 'toggle_check':
+                const nodes = payload.nodes;
+                const nodeId = String(payload.nodeId);
+                const isChecked = payload.checked;
+                const checkedIds = new Set(payload.checkedIds || []);
+                const indeterminateIds = new Set(payload.indeterminateIds || []);
+
+                const targetNode = workerCore.findNodeById(nodes, nodeId);
+                if (targetNode) {
+                    // Recursive toggle down
+                    const toggleDown = (node, check) => {
+                        const id = String(node.id);
+                        if (check) {
+                            checkedIds.add(id);
+                        } else {
+                            checkedIds.delete(id);
+                        }
+                        indeterminateIds.delete(id);
+                        if (node.children) {
+                            node.children.forEach(c => toggleDown(c, check));
+                        }
+                    };
+                    toggleDown(targetNode, isChecked);
+
+                    // Propagate up (re-calculate all ancestors or just this branch)
+                    // For simplicity and correctness in a stateless worker, we can re-calculate all or use a parent map.
+                    // Let's implement a bubble-up update.
+                    const updateUp = (currId) => {
+                        const findParent = (list, target, parent = null) => {
+                            for (const n of list) {
+                                if (String(n.id) === target) return parent;
+                                if (n.children) {
+                                    const p = findParent(n.children, target, n);
+                                    if (p) return p;
+                                }
+                            }
+                            return null;
+                        };
+
+                        const parent = findParent(nodes, currId);
+                        if (!parent) return;
+
+                        const children = parent.children || [];
+                        let checkedCount = 0;
+                        let indeterminateCount = 0;
+
+                        children.forEach(c => {
+                            const cid = String(c.id);
+                            if (checkedIds.has(cid)) checkedCount++;
+                            else if (indeterminateIds.has(cid)) indeterminateCount++;
+                        });
+
+                        const pid = String(parent.id);
+                        if (checkedCount === children.length) {
+                            checkedIds.add(pid);
+                            indeterminateIds.delete(pid);
+                        } else if (checkedCount > 0 || indeterminateCount > 0) {
+                            checkedIds.delete(pid);
+                            indeterminateIds.add(pid);
+                        } else {
+                            checkedIds.delete(pid);
+                            indeterminateIds.delete(pid);
+                        }
+                        updateUp(pid);
+                    };
+                    updateUp(nodeId);
+                }
+
+                self.postMessage({
+                    type: 'toggle_check_result',
+                    id: id,
+                    result: {
+                        checkedIds: Array.from(checkedIds),
+                        indeterminateIds: Array.from(indeterminateIds)
+                    }
+                });
+                break;
+
             default:
                 throw new Error(`Unknown message type: ${type}`);
         }

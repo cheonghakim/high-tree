@@ -614,29 +614,77 @@ export default class VirtualTree {
 
     /**
      * Handle checkbox click event.
-     * Toggles node and children, then updates ancestors.
+     * Decisions between synchronous (main thread) or worker-based processing 
+     * based on tree size to maintain UI responsiveness.
      */
-    handleCheckboxClick(nodeId) {
+    async handleCheckboxClick(nodeId) {
         if (!this.options.checkbox) return;
 
-        // Ensure ID is a string for consistency
+        const startTime = performance.now();
+        const totalNodesCount = this.state.visibleNodes.length; 
+        const useWorker = this.useWorkerForOperations && this.workerReady && totalNodesCount > 10000;
+
+        let resultMetadata = {
+            timeTaken: 0,
+            isWorker: useWorker,
+            nodesCount: totalNodesCount
+        };
+
+        if (useWorker) {
+            // Offload to background worker for massive scale
+            await this.handleCheckboxClickWorker(nodeId);
+            resultMetadata.timeTaken = performance.now() - startTime;
+        } else {
+            // Instant synchronous update for standard use cases
+            this.handleCheckboxClickSync(nodeId);
+            resultMetadata.timeTaken = performance.now() - startTime;
+        }
+
+        // Pass performance metadata to callback if demo needs to show efficiency
+        if (this.options.onCheck) {
+            this.options.onCheck(this.getCheckedNodes(), resultMetadata);
+        }
+
+        this.render();
+    }
+
+    /**
+     * Synchronous implementation for immediate feedback in small/medium trees.
+     * @private
+     */
+    handleCheckboxClickSync(nodeId) {
         const id = String(nodeId);
         const node = this.findNodeById(id);
         if (!node) return;
 
         const willCheck = !this.state.checkedIds.has(id);
-        
-        // Cascade down to children
         this._toggleNodeCheckedRecursive(node, willCheck);
-        
-        // Propagate up to ancestors
         this._updateAncestorsState(id);
+    }
 
-        if (this.options.onCheck) {
-            this.options.onCheck(this.getCheckedNodes());
+    /**
+     * Asynchronous implementation for large trees (10k+ nodes).
+     * Prevents UI freeze by delegating calculation to Web Worker.
+     * @private
+     */
+    async handleCheckboxClickWorker(nodeId) {
+        try {
+            const result = await this.postWorkerMessage('toggle_check', {
+                nodes: this.state.treeData,
+                nodeId: nodeId,
+                checked: !this.state.checkedIds.has(String(nodeId)),
+                checkedIds: Array.from(this.state.checkedIds),
+                indeterminateIds: Array.from(this.state.indeterminateIds)
+            });
+
+            if (result) {
+                this.state.checkedIds = new Set(result.checkedIds);
+                this.state.indeterminateIds = new Set(result.indeterminateIds);
+            }
+        } catch (error) {
+            console.error('[high-tree] Worker checkbox operation failed, falling back to sync', error);
+            this.handleCheckboxClickSync(nodeId);
         }
-
-        this.render();
     }
 
     /**
@@ -765,11 +813,14 @@ export default class VirtualTree {
     startEditing(nodeId) {
         this.state.editingId = nodeId;
         this.render();
-        const input = this.container.querySelector(`.tree-edit-input[data-id="${nodeId}"]`);
-        if (input) {
-            input.focus();
-            input.select();
-        }
+        // Use requestAnimationFrame to ensure the input is in the DOM before focusing
+        requestAnimationFrame(() => {
+            const input = this.container.querySelector(`[data-id="${nodeId}"] .tree-edit-input`);
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        });
     }
 
     saveEditing(nodeId, newLabel) {
@@ -1010,7 +1061,7 @@ export default class VirtualTree {
             content = `
                 <div class="flex items-center gap-1 flex-1 min-w-[120px] mr-2">
                     <input type="text" class="tree-edit-input flex-1 min-w-[150px] px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none"
-                        data-id="${node.id}" value="${node.label}">
+                        value="${node.label}">
                     <button class="tree-edit-save p-1 shrink-0 text-green-600 hover:bg-green-50 rounded transition-colors" title="Save">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
@@ -1089,9 +1140,12 @@ export default class VirtualTree {
             return;
         }
 
-        // Build map of currently rendered elements
-        const existingEls = Array.from(this.contentLayer.querySelectorAll('[data-id]'));
-        const existingMap = new Map(existingEls.map(el => [el.dataset.id, el]));
+        // Build map of currently rendered row elements (direct children of contentLayer)
+        const existingEls = Array.from(this.contentLayer.children);
+        const existingMap = new Map();
+        existingEls.forEach(el => {
+            if (el.dataset.id) existingMap.set(el.dataset.id, el);
+        });
         const newIds = new Set(displayNodes.map(n => n.id));
 
         // Remove elements that are no longer in the visible window
