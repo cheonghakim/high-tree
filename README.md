@@ -1,4 +1,4 @@
-# High-Tree
+# High-Tree 🌲
 
 고성능 가상 트리 컴포넌트 · A high-performance virtual tree component for modern web applications.  
 Zero dependencies · Vanilla JavaScript · TypeScript types included
@@ -20,10 +20,10 @@ Standard DOM-based trees freeze the browser when datasets grow large. High-Tree 
 - **Web Worker 오프로딩 / Web Worker Offloading** — 체크박스 cascade 등 무거운 연산을 메인 스레드 밖에서 처리해 UI가 끊기지 않습니다.  
   Heavy operations like checkbox cascade run off the main thread, keeping the UI responsive.
 
-| 지표 / Metric | 일반 재귀 DOM / Standard recursive DOM | High-Tree |
-|:---|:---|:---|
-| 초기 렌더 100k 노드 / Initial render (100k nodes) | ~297 ms | **~24 ms** (12× faster) |
-| 생성된 DOM 노드 / Live DOM nodes | 420,001 | **~169** (2,485× lighter) |
+| 지표 / Metric                                     | 일반 재귀 DOM / Standard recursive DOM | High-Tree                 |
+| :------------------------------------------------ | :------------------------------------- | :------------------------ |
+| 초기 렌더 100k 노드 / Initial render (100k nodes) | ~297 ms                                | **~24 ms** (12× faster)   |
+| 생성된 DOM 노드 / Live DOM nodes                  | 420,001                                | **~169** (2,485× lighter) |
 
 ---
 
@@ -66,10 +66,10 @@ Add `high-tree` to your Tailwind `content` paths to prevent class purging:
 // tailwind.config.js
 export default {
   content: [
-    './src/**/*.{html,js,ts,jsx,tsx}',
-    './node_modules/high-tree/high-tree.js', // High-Tree 클래스 보존 / keep High-Tree classes
+    "./src/**/*.{html,js,ts,jsx,tsx}",
+    "./node_modules/high-tree/high-tree.js", // High-Tree 클래스 보존 / keep High-Tree classes
   ],
-}
+};
 ```
 
 ---
@@ -86,24 +86,24 @@ export default {
     <div id="my-tree"></div>
 
     <script type="module">
-      import VirtualTree from 'high-tree';
+      import VirtualTree from "high-tree";
 
-      const tree = new VirtualTree(document.getElementById('my-tree'), {
+      const tree = new VirtualTree(document.getElementById("my-tree"), {
         height: 500,
         data: [
           {
-            id: 'docs',
-            label: '문서',
+            id: "docs",
+            label: "문서",
             level: 0,
             children: [
-              { id: 'docs-work',     label: '업무',   level: 1 },
-              { id: 'docs-personal', label: '개인',   level: 1 },
+              { id: "docs-work", label: "업무", level: 1 },
+              { id: "docs-personal", label: "개인", level: 1 },
             ],
           },
-          { id: 'readme', label: 'README.md', level: 0 },
+          { id: "readme", label: "README.md", level: 0 },
         ],
         selectable: true,
-        onSelect: (nodes) => console.log('선택됨', nodes),
+        onSelect: (nodes) => console.log("선택됨", nodes),
       });
     </script>
   </body>
@@ -123,12 +123,12 @@ Every node object must include `id`, `label`, and `level`.
 
 ```ts
 interface TreeNode {
-  id: string;           // 고유 식별자 (문자열) / unique identifier — must be a string
-  label: string;        // 표시 텍스트 / display text
-  level: number;        // 깊이: 0=루트, 1=자식 … / depth: 0=root, 1=child …
-  children?: TreeNode[];    // 미리 로드된 자식 (정적 트리) / pre-loaded children (static tree)
-  hasChildren?: boolean;    // true = 아직 로드되지 않은 자식이 있음 (lazy 모드) / true = has unloaded children (lazy mode)
-  [key: string]: any;       // 커스텀 프로퍼티 자유롭게 추가 가능 / any extra properties are preserved
+  id: string; // 고유 식별자 (문자열) / unique identifier — must be a string
+  label: string; // 표시 텍스트 / display text
+  level: number; // 깊이: 0=루트, 1=자식 … / depth: 0=root, 1=child …
+  children?: TreeNode[]; // 미리 로드된 자식 (정적 트리) / pre-loaded children (static tree)
+  hasChildren?: boolean; // true = 아직 로드되지 않은 자식이 있음 (lazy 모드) / true = has unloaded children (lazy mode)
+  [key: string]: any; // 커스텀 프로퍼티 자유롭게 추가 가능 / any extra properties are preserved
 }
 ```
 
@@ -178,7 +178,7 @@ If auto-detection fails, set the path explicitly:
 
 ```js
 const tree = new VirtualTree(el, {
-  workerPath: '/assets/high-tree-worker.js',
+  workerPath: "/assets/high-tree-worker.js",
 });
 ```
 
@@ -194,53 +194,53 @@ const tree = new VirtualTree(el, { useWorker: false });
 
 ### 표시 / Display
 
-| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description |
-|:---|:---|:---|:---|
-| `data` | `TreeNode[]` | `[]` | 초기 트리 데이터 / Initial tree data |
-| `height` | `number` | `550` | 컨테이너 높이 (px) / Container height in px |
-| `rowHeight` | `number` | `40` | 행 높이 (px) / Row height in px |
+| 옵션 / Option | 타입 / Type  | 기본값 / Default | 설명 / Description                          |
+| :------------ | :----------- | :--------------- | :------------------------------------------ |
+| `data`        | `TreeNode[]` | `[]`             | 초기 트리 데이터 / Initial tree data        |
+| `height`      | `number`     | `550`            | 컨테이너 높이 (px) / Container height in px |
+| `rowHeight`   | `number`     | `40`             | 행 높이 (px) / Row height in px             |
 
 ### 기능 / Features
 
-| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description |
-|:---|:---|:---|:---|
-| `lazy` | `boolean` | `false` | `onLoadData`를 통한 지연 로딩 활성화 / Enable on-demand child loading via `onLoadData` |
-| `selectable` | `boolean` | `false` | 행 선택 활성화 / Enable row selection |
-| `multiSelect` | `boolean` | `false` | Ctrl/Cmd·Shift 다중 선택 / Allow Ctrl/Cmd + click and Shift + click multi-select |
-| `cascadeSelect` | `boolean` | `false` | 부모 선택 시 자식 자동 선택 / Auto-select all descendants when a parent is selected |
-| `checkbox` | `boolean` | `false` | indeterminate 상태 포함 체크박스 / Show checkboxes with indeterminate parent state |
-| `draggable` | `boolean` | `false` | 드래그 앤 드롭 / Enable drag-and-drop reordering |
-| `enableDefaultDragDrop` | `boolean` | `true` | drop 시 노드 이동 자동 적용. `false`로 설정하면 `onDrop`에서 직접 처리. / Automatically apply node moves on drop. Set `false` to handle reordering in `onDrop`. |
-| `editable` | `boolean` | `false` | 더블 클릭 인라인 라벨 편집 / Enable double-click inline label editing |
+| 옵션 / Option           | 타입 / Type | 기본값 / Default | 설명 / Description                                                                                                                                              |
+| :---------------------- | :---------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lazy`                  | `boolean`   | `false`          | `onLoadData`를 통한 지연 로딩 활성화 / Enable on-demand child loading via `onLoadData`                                                                          |
+| `selectable`            | `boolean`   | `false`          | 행 선택 활성화 / Enable row selection                                                                                                                           |
+| `multiSelect`           | `boolean`   | `false`          | Ctrl/Cmd·Shift 다중 선택 / Allow Ctrl/Cmd + click and Shift + click multi-select                                                                                |
+| `cascadeSelect`         | `boolean`   | `false`          | 부모 선택 시 자식 자동 선택 / Auto-select all descendants when a parent is selected                                                                             |
+| `checkbox`              | `boolean`   | `false`          | indeterminate 상태 포함 체크박스 / Show checkboxes with indeterminate parent state                                                                              |
+| `draggable`             | `boolean`   | `false`          | 드래그 앤 드롭 / Enable drag-and-drop reordering                                                                                                                |
+| `enableDefaultDragDrop` | `boolean`   | `true`           | drop 시 노드 이동 자동 적용. `false`로 설정하면 `onDrop`에서 직접 처리. / Automatically apply node moves on drop. Set `false` to handle reordering in `onDrop`. |
+| `editable`              | `boolean`   | `false`          | 더블 클릭 인라인 라벨 편집 / Enable double-click inline label editing                                                                                           |
 
 ### Worker
 
-| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description |
-|:---|:---|:---|:---|
-| `useWorker` | `boolean` | `true` | 대규모 트리 연산에 Web Worker 사용 / Use a Web Worker for large-tree operations |
-| `workerPath` | `string` | `null` | `high-tree-worker.js` 경로 직접 지정 / Explicit path to `high-tree-worker.js` |
+| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description                                                              |
+| :------------ | :---------- | :--------------- | :------------------------------------------------------------------------------ |
+| `useWorker`   | `boolean`   | `true`           | 대규모 트리 연산에 Web Worker 사용 / Use a Web Worker for large-tree operations |
+| `workerPath`  | `string`    | `null`           | `high-tree-worker.js` 경로 직접 지정 / Explicit path to `high-tree-worker.js`   |
 
 ### 다국어 / Locale
 
-| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description |
-|:---|:---|:---|:---|
-| `locale` | `object` | `{}` | UI 문자열 재정의 / Override UI strings — [다국어 설정](#다국어-설정--localization-i18n) 참고 |
+| 옵션 / Option | 타입 / Type | 기본값 / Default | 설명 / Description                                                                           |
+| :------------ | :---------- | :--------------- | :------------------------------------------------------------------------------------------- |
+| `locale`      | `object`    | `{}`             | UI 문자열 재정의 / Override UI strings — [다국어 설정](#다국어-설정--localization-i18n) 참고 |
 
 ### 콜백 / Callbacks
 
-| 옵션 / Option | 시그니처 / Signature | 설명 / Description |
-|:---|:---|:---|
-| `onLoadData` | `async (node) => TreeNode[]` | **`lazy: true` 사용 시 필수.** 해당 노드의 자식 배열을 반환합니다. / **Required when `lazy: true`.** Return child nodes for the given node. |
-| `onClick` | `(node, event) => void` | 행 클릭 시 호출 / Fired on row click |
-| `onExpand` | `(node) => void` | 노드 펼침 시 호출 / Fired when a node expands |
-| `onCollapse` | `(node) => void` | 노드 접힘 시 호출 / Fired when a node collapses |
-| `onSelect` | `(nodes) => void` | 선택 변경 시 호출. 현재 선택된 노드 전체를 받습니다. / Fired when selection changes. Receives all currently selected nodes. |
-| `onCheck` | `(nodes, meta) => void` | 체크 상태 변경 시 호출. `meta`에 `{ timeTaken, isWorker }` 포함. / Fired when checkbox state changes. `meta` contains `{ timeTaken, isWorker }`. |
-| `onDrop` | `(dragged, target, position) => void` | `position`은 `'before'` · `'after'` · `'inside'` 중 하나. / `position` is `'before'`, `'after'`, or `'inside'`. |
-| `onContextMenu` | `(node, event) => void` | 우클릭 시 호출 / Fired on right-click |
-| `onEdit` | `(node, newLabel, oldLabel) => void` | 인라인 편집 저장 후 호출 / Fired after an inline edit is saved |
-| `renderNode` | `(node, searchTerm) => string` | 노드 콘텐츠 영역을 커스텀 HTML로 교체 / Return an HTML string to replace the default node content — [커스텀 노드 렌더링](#커스텀-노드-렌더링--custom-node-rendering) 참고 |
-| `filter` | `(node) => boolean` | 초기 필터 함수 / Initial filter function |
+| 옵션 / Option   | 시그니처 / Signature                  | 설명 / Description                                                                                                                                                        |
+| :-------------- | :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `onLoadData`    | `async (node) => TreeNode[]`          | **`lazy: true` 사용 시 필수.** 해당 노드의 자식 배열을 반환합니다. / **Required when `lazy: true`.** Return child nodes for the given node.                               |
+| `onClick`       | `(node, event) => void`               | 행 클릭 시 호출 / Fired on row click                                                                                                                                      |
+| `onExpand`      | `(node) => void`                      | 노드 펼침 시 호출 / Fired when a node expands                                                                                                                             |
+| `onCollapse`    | `(node) => void`                      | 노드 접힘 시 호출 / Fired when a node collapses                                                                                                                           |
+| `onSelect`      | `(nodes) => void`                     | 선택 변경 시 호출. 현재 선택된 노드 전체를 받습니다. / Fired when selection changes. Receives all currently selected nodes.                                               |
+| `onCheck`       | `(nodes, meta) => void`               | 체크 상태 변경 시 호출. `meta`에 `{ timeTaken, isWorker }` 포함. / Fired when checkbox state changes. `meta` contains `{ timeTaken, isWorker }`.                          |
+| `onDrop`        | `(dragged, target, position) => void` | `position`은 `'before'` · `'after'` · `'inside'` 중 하나. / `position` is `'before'`, `'after'`, or `'inside'`.                                                           |
+| `onContextMenu` | `(node, event) => void`               | 우클릭 시 호출 / Fired on right-click                                                                                                                                     |
+| `onEdit`        | `(node, newLabel, oldLabel) => void`  | 인라인 편집 저장 후 호출 / Fired after an inline edit is saved                                                                                                            |
+| `renderNode`    | `(node, searchTerm) => string`        | 노드 콘텐츠 영역을 커스텀 HTML로 교체 / Return an HTML string to replace the default node content — [커스텀 노드 렌더링](#커스텀-노드-렌더링--custom-node-rendering) 참고 |
+| `filter`        | `(node) => boolean`                   | 초기 필터 함수 / Initial filter function                                                                                                                                  |
 
 ---
 
@@ -249,20 +249,20 @@ const tree = new VirtualTree(el, { useWorker: false });
 ### 트리 제어 / Tree control
 
 ```js
-await tree.expandNode(id)   // 특정 노드 펼침 (lazy 로딩 포함) / Expand one node (handles lazy loading)
-tree.collapseNode(id)        // 특정 노드 접음 / Collapse one node
-await tree.expandAll()       // 모든 노드 펼침 (비동기) / Expand every node (async — triggers lazy loaders)
-tree.collapseAll()           // 모든 노드 접음 / Collapse every node
-tree.scrollToNode(id)        // 해당 노드가 보이도록 뷰포트 스크롤 / Scroll the viewport to bring a node into view
+await tree.expandNode(id); // 특정 노드 펼침 (lazy 로딩 포함) / Expand one node (handles lazy loading)
+tree.collapseNode(id); // 특정 노드 접음 / Collapse one node
+await tree.expandAll(); // 모든 노드 펼침 (비동기) / Expand every node (async — triggers lazy loaders)
+tree.collapseAll(); // 모든 노드 접음 / Collapse every node
+tree.scrollToNode(id); // 해당 노드가 보이도록 뷰포트 스크롤 / Scroll the viewport to bring a node into view
 ```
 
 ### 선택 / Selection
 
 ```js
-tree.selectNode(id)          // 프로그래밍 방식으로 노드 선택 / Programmatically select a node
-tree.unselectNode(id)        // 노드 선택 해제 / Deselect a node
-tree.getSelectedNodes()      // → TreeNode[]
-tree.clearSelection()        // 모든 선택 해제 / Clear all selections
+tree.selectNode(id); // 프로그래밍 방식으로 노드 선택 / Programmatically select a node
+tree.unselectNode(id); // 노드 선택 해제 / Deselect a node
+tree.getSelectedNodes(); // → TreeNode[]
+tree.clearSelection(); // 모든 선택 해제 / Clear all selections
 ```
 
 ### 체크박스 / Checkboxes
@@ -276,12 +276,12 @@ tree.getCheckedNodes()       // → TreeNode[] (완전 체크된 노드만, inde
 ### 데이터 관리 / Data management
 
 ```js
-tree.setData(newData)        // 전체 트리 데이터 교체 / Replace the entire tree
-tree.getData()               // → TreeNode[] (변경 사항 포함 현재 데이터 / current data including mutations)
-tree.findNodeById(id)        // → TreeNode | null
-tree.addNode(parentId, node) // 노드 추가. parentId=null이면 루트에 추가. / Add a node. parentId=null adds at root.
-tree.removeNode(id)          // 노드와 모든 자손 삭제 / Remove a node and all its descendants
-tree.refresh()               // 강제 리렌더링 / Force a full re-render
+tree.setData(newData); // 전체 트리 데이터 교체 / Replace the entire tree
+tree.getData(); // → TreeNode[] (변경 사항 포함 현재 데이터 / current data including mutations)
+tree.findNodeById(id); // → TreeNode | null
+tree.addNode(parentId, node); // 노드 추가. parentId=null이면 루트에 추가. / Add a node. parentId=null adds at root.
+tree.removeNode(id); // 노드와 모든 자손 삭제 / Remove a node and all its descendants
+tree.refresh(); // 강제 리렌더링 / Force a full re-render
 ```
 
 ### 필터링 & 검색 / Filtering & Search
@@ -290,21 +290,21 @@ tree.refresh()               // 강제 리렌더링 / Force a full re-render
 The search bar is built-in. For programmatic filtering:
 
 ```js
-tree.setFilter(node => node.type === 'folder') // 폴더만 표시 / Show only folders
-tree.clearFilter()                              // 필터 제거 / Remove the custom filter
+tree.setFilter((node) => node.type === "folder"); // 폴더만 표시 / Show only folders
+tree.clearFilter(); // 필터 제거 / Remove the custom filter
 ```
 
 ### 상태 저장 / State persistence
 
 ```js
-const saved = tree.exportState() // { expandedIds, selectedIds, checkedIds } 반환 / Returns state object
-tree.importState(saved)           // 이전에 내보낸 상태 복원 / Restore a previously exported state
+const saved = tree.exportState(); // { expandedIds, selectedIds, checkedIds } 반환 / Returns state object
+tree.importState(saved); // 이전에 내보낸 상태 복원 / Restore a previously exported state
 ```
 
 ### 생명주기 / Lifecycle
 
 ```js
-tree.terminateWorker() // Web Worker 종료. 컴포넌트 언마운트 시 호출. / Stop the Web Worker. Call when unmounting.
+tree.terminateWorker(); // Web Worker 종료. 컴포넌트 언마운트 시 호출. / Stop the Web Worker. Call when unmounting.
 ```
 
 ---
@@ -318,18 +318,18 @@ Override any UI string via the `locale` option. Unset keys fall back to English 
 ```js
 const tree = new VirtualTree(el, {
   locale: {
-    searchPlaceholder: '검색...',
-    emptyText: '검색 결과가 없습니다.',
+    searchPlaceholder: "검색...",
+    emptyText: "검색 결과가 없습니다.",
   },
 });
 ```
 
 **사용 가능한 locale 키 / Available locale keys**
 
-| 키 / Key | 기본값 / Default | 설명 / Description |
-|:---|:---|:---|
-| `searchPlaceholder` | `'Search...'` | 검색 입력창 플레이스홀더 / Placeholder text in the search input |
-| `emptyText` | `'No results found.'` | 검색 결과가 없을 때 표시되는 문구 / Message shown when the filtered result set is empty |
+| 키 / Key            | 기본값 / Default      | 설명 / Description                                                                      |
+| :------------------ | :-------------------- | :-------------------------------------------------------------------------------------- |
+| `searchPlaceholder` | `'Search...'`         | 검색 입력창 플레이스홀더 / Placeholder text in the search input                         |
+| `emptyText`         | `'No results found.'` | 검색 결과가 없을 때 표시되는 문구 / Message shown when the filtered result set is empty |
 
 **언어별 예시 / Examples by language**
 
@@ -377,16 +377,16 @@ renderNode: (node, searchTerm) => {
 
 ## 키보드 단축키 / Keyboard Shortcuts
 
-| 키 / Key | 동작 / Action |
-|:---|:---|
-| `↑` / `↓` | 포커스 이동 / Move focus up / down |
-| `→` | 노드 펼치기 / Expand node |
-| `←` | 노드 접기 / Collapse node |
-| `Enter` | 펼침 토글 / 편집 저장 / Toggle expand / confirm edit |
-| `Space` | 선택 / 체크 / Select or check focused node |
-| `Escape` | 편집 취소 / Cancel inline edit |
-| `Ctrl + Click` | 다중 선택에 추가/제거 / Add to / remove from selection |
-| `Shift + Click` | 범위 선택 / Range select |
+| 키 / Key        | 동작 / Action                                          |
+| :-------------- | :----------------------------------------------------- |
+| `↑` / `↓`       | 포커스 이동 / Move focus up / down                     |
+| `→`             | 노드 펼치기 / Expand node                              |
+| `←`             | 노드 접기 / Collapse node                              |
+| `Enter`         | 펼침 토글 / 편집 저장 / Toggle expand / confirm edit   |
+| `Space`         | 선택 / 체크 / Select or check focused node             |
+| `Escape`        | 편집 취소 / Cancel inline edit                         |
+| `Ctrl + Click`  | 다중 선택에 추가/제거 / Add to / remove from selection |
+| `Shift + Click` | 범위 선택 / Range select                               |
 
 ---
 
@@ -396,15 +396,15 @@ High-Tree는 타입 정의를 기본 포함합니다.
 High-Tree ships with type definitions.
 
 ```ts
-import VirtualTree, { type VirtualTreeOptions, type TreeNode } from 'high-tree';
+import VirtualTree, { type VirtualTreeOptions, type TreeNode } from "high-tree";
 
 const options: VirtualTreeOptions = {
   data: [],
   height: 600,
   lazy: true,
   locale: {
-    searchPlaceholder: '검색...',
-    emptyText: '검색 결과가 없습니다.',
+    searchPlaceholder: "검색...",
+    emptyText: "검색 결과가 없습니다.",
   },
   onLoadData: async (node: TreeNode): Promise<TreeNode[]> => {
     const res = await fetch(`/api/nodes/${node.id}`);
@@ -412,7 +412,7 @@ const options: VirtualTreeOptions = {
   },
 };
 
-const tree = new VirtualTree(document.getElementById('tree')!, options);
+const tree = new VirtualTree(document.getElementById("tree")!, options);
 ```
 
 ---
