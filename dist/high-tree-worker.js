@@ -1,18 +1,18 @@
 /**
- * High-Tree Web Worker
- * Handles CPU-intensive tree operations off the main thread
+ * Web Worker for the High-Tree component.
+ * Performs computationally expensive tree flattening and search operations off-thread.
  */
 
 class TreeWorkerCore {
     /**
-     * Flatten tree and apply filtering/search
-     * @param {Array} nodes - Tree nodes
-     * @param {number} level - Current depth level
-     * @param {Array} result - Result accumulator
-     * @param {string} searchTerm - Search query
-     * @param {Set} expandedIds - Set of expanded node IDs
-     * @param {Array} customFilterRules - Serializable filter rules (not functions)
-     * @returns {boolean} hasMatchInBranch
+     * Flattens the tree structure and applies filtering/search logic.
+     * @param {Array} nodes - Source tree nodes.
+     * @param {number} level - Current nesting level.
+     * @param {Array} result - Accumulator for flattened nodes.
+     * @param {string} searchTerm - Search query to match labels against.
+     * @param {Set} expandedIds - Map of nodes to be expanded.
+     * @param {Array} customFilterRules - Serialization-friendly filter rules.
+     * @returns {boolean} True if any node in this branch matches the search criteria.
      */
     flattenFilteredTree(nodes, level = 0, result = [], searchTerm = '', expandedIds = new Set(), customFilterRules = null) {
         let hasMatchInBranch = false;
@@ -41,7 +41,8 @@ class TreeWorkerCore {
 
             if (!currentSearch || isMatch || childHasMatch) {
                 result.push({ ...node, level, isMatch });
-                if ((currentSearch && childHasMatch) || (!currentSearch && expandedIds.has(node.id))) {
+                // Auto-expand if child has match OR explicitly expanded
+                if (childHasMatch || (!currentSearch && expandedIds.has(node.id))) {
                     result.push(...tempSubResult);
                 }
                 if (isMatch || childHasMatch) hasMatchInBranch = true;
@@ -239,6 +240,84 @@ self.onmessage = function (e) {
                     type: 'find_node_result',
                     id: id,
                     node: foundNode
+                });
+                break;
+
+            case 'toggle_check':
+                const nodes = payload.nodes;
+                const nodeId = String(payload.nodeId);
+                const isChecked = payload.checked;
+                const checkedIds = new Set(payload.checkedIds || []);
+                const indeterminateIds = new Set(payload.indeterminateIds || []);
+
+                const targetNode = workerCore.findNodeById(nodes, nodeId);
+                if (targetNode) {
+                    // Recursive toggle down
+                    const toggleDown = (node, check) => {
+                        const id = String(node.id);
+                        if (check) {
+                            checkedIds.add(id);
+                        } else {
+                            checkedIds.delete(id);
+                        }
+                        indeterminateIds.delete(id);
+                        if (node.children) {
+                            node.children.forEach(c => toggleDown(c, check));
+                        }
+                    };
+                    toggleDown(targetNode, isChecked);
+
+                    // Propagate up (re-calculate all ancestors or just this branch)
+                    // For simplicity and correctness in a stateless worker, we can re-calculate all or use a parent map.
+                    // Let's implement a bubble-up update.
+                    const updateUp = (currId) => {
+                        const findParent = (list, target, parent = null) => {
+                            for (const n of list) {
+                                if (String(n.id) === target) return parent;
+                                if (n.children) {
+                                    const p = findParent(n.children, target, n);
+                                    if (p) return p;
+                                }
+                            }
+                            return null;
+                        };
+
+                        const parent = findParent(nodes, currId);
+                        if (!parent) return;
+
+                        const children = parent.children || [];
+                        let checkedCount = 0;
+                        let indeterminateCount = 0;
+
+                        children.forEach(c => {
+                            const cid = String(c.id);
+                            if (checkedIds.has(cid)) checkedCount++;
+                            else if (indeterminateIds.has(cid)) indeterminateCount++;
+                        });
+
+                        const pid = String(parent.id);
+                        if (checkedCount === children.length) {
+                            checkedIds.add(pid);
+                            indeterminateIds.delete(pid);
+                        } else if (checkedCount > 0 || indeterminateCount > 0) {
+                            checkedIds.delete(pid);
+                            indeterminateIds.add(pid);
+                        } else {
+                            checkedIds.delete(pid);
+                            indeterminateIds.delete(pid);
+                        }
+                        updateUp(pid);
+                    };
+                    updateUp(nodeId);
+                }
+
+                self.postMessage({
+                    type: 'toggle_check_result',
+                    id: id,
+                    result: {
+                        checkedIds: Array.from(checkedIds),
+                        indeterminateIds: Array.from(indeterminateIds)
+                    }
                 });
                 break;
 

@@ -55,9 +55,17 @@ export default class VirtualTree {
             customFilter: this.options.filter,
         };
 
+        // Locale defaults — overridable via options.locale
+        this._locale = Object.assign({
+            searchPlaceholder: 'Search...',
+            emptyText: 'No results found.',
+            nodeCount: (n) => `${n} node${n === 1 ? '' : 's'}`,
+        }, options.locale || {});
+
         // Worker state
         this.worker = null;
         this.workerReady = false;
+        this._scrollRafId = null;
         this.useWorkerForOperations = false;
         this.workerMessageId = 0;
         this.workerCallbacks = new Map();
@@ -186,7 +194,7 @@ export default class VirtualTree {
       <div class="flex flex-col border border-gray-200 rounded-lg bg-white overflow-hidden" style="height: ${this.options.height}px" tabindex="0" id="tree-container">
         <!-- Search Bar -->
         <div class="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
-          <input type="text" id="tree-search" placeholder="Search..." class="flex-1 py-1.5 px-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-400 transition-colors">
+          <input type="text" id="tree-search" placeholder="${this._locale.searchPlaceholder}" class="flex-1 py-1.5 px-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-400 transition-colors">
           <div id="tree-count" class="text-[11px] text-gray-400 tabular-nums shrink-0">0</div>
         </div>
 
@@ -205,10 +213,14 @@ export default class VirtualTree {
         this.searchInput = this.container.querySelector('#tree-search');
         this.countDisplay = this.container.querySelector('#tree-count');
 
-        // Event listeners
+        // Event listeners — rAF guard prevents redundant renders during fast scrolling
         this.viewport.addEventListener('scroll', () => {
             this.state.scrollTop = this.viewport.scrollTop;
-            this.render();
+            if (this._scrollRafId) return;
+            this._scrollRafId = requestAnimationFrame(() => {
+                this._scrollRafId = null;
+                this.render();
+            });
         });
 
         this.searchInput.addEventListener('input', (e) => {
@@ -232,9 +244,13 @@ export default class VirtualTree {
                 this.handleCheckboxClick(nodeId);
                 return;
             }
-            if (e.target.closest('.w-5.h-5')) {
+            if (e.target.closest('.tree-toggle')) {
                 e.stopPropagation();
-                this.toggleNode(nodeId);
+                if (this.state.expandedIds.has(nodeId)) {
+                    this.collapseNode(nodeId);
+                } else {
+                    this.expandNode(nodeId);
+                }
                 return;
             }
 
@@ -545,59 +561,11 @@ export default class VirtualTree {
             this.render();
         }
 
-        // Expand/collapse
+        // Expand/collapse — delegates to expandNode (which handles lazy loading)
         if (this.state.expandedIds.has(nodeId)) {
-            this.state.expandedIds.delete(nodeId);
-            if (this.options.onCollapse) {
-                this.options.onCollapse(node);
-            }
-            this.setState({});
+            this.collapseNode(nodeId);
         } else {
-            // Lazy Load
-            if (this.options.lazy && node.hasChildren && !node.children) {
-                this.state.loadingIds.add(nodeId);
-                this.render();
-
-                try {
-                    const newChildren = await this.options.onLoadData(node);
-
-                    // Update data structure
-                    const updateRecursive = (list) => {
-                        return list.map(n => {
-                            if (n.id === nodeId) return { ...n, children: newChildren };
-                            if (n.children) return { ...n, children: updateRecursive(n.children) };
-                            return n;
-                        });
-                    };
-                    this.state.treeData = updateRecursive(this.state.treeData);
-                    this.state.expandedIds.add(nodeId);
-                    if (this.options.onExpand) {
-                        this.options.onExpand(node);
-                    }
-
-                    // Cascade check inherit
-                    if (this.options.checkbox && this.state.checkedIds.has(nodeId)) {
-                        const checkRecursive = (children) => {
-                            children.forEach(c => {
-                                this.state.checkedIds.add(String(c.id));
-                                if (c.children) checkRecursive(c.children);
-                            });
-                        };
-                        checkRecursive(newChildren);
-                    }
-
-                    this.setState({});
-                } finally {
-                    this.state.loadingIds.delete(nodeId);
-                    this.setState({});
-                }
-            } else {
-                this.state.expandedIds.add(nodeId);
-                if (this.options.onExpand) {
-                    this.options.onExpand(node);
-                }
-                this.setState({});
-            }
+            await this.expandNode(nodeId);
         }
     }
 
@@ -989,11 +957,23 @@ export default class VirtualTree {
         }
     }
 
-    // Highlight search term
+    _escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Highlight search term — escapes label before injection to prevent XSS
     getHighlightedText(text) {
-        if (!this.state.searchTerm) return text;
-        const regex = new RegExp(`(${this.state.searchTerm})`, 'gi');
-        return text.replace(regex, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>');
+        const escaped = this._escapeHtml(text);
+        if (!this.state.searchTerm) return escaped;
+        const escapedTerm = this._escapeHtml(this.state.searchTerm)
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedTerm})`, 'gi');
+        return escaped.replace(regex, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>');
     }
 
     updateIndeterminateStates() {
@@ -1061,7 +1041,7 @@ export default class VirtualTree {
             content = `
                 <div class="flex items-center gap-1 flex-1 min-w-[120px] mr-2">
                     <input type="text" class="tree-edit-input flex-1 min-w-[150px] px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none"
-                        value="${node.label}">
+                        value="${this._escapeHtml(node.label)}">
                     <button class="tree-edit-save p-1 shrink-0 text-green-600 hover:bg-green-50 rounded transition-colors" title="Save">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
@@ -1084,7 +1064,7 @@ export default class VirtualTree {
       `;
         }
  
-        const dropClass = isDragOver ? (dragPos === 'before' ? 'border-t-2 border-t-gray-400' : dragPos === 'after' ? 'border-b-2 border-b-gray-400' : 'bg-gray-50') : '';
+        const dropClass = isDragOver ? (dragPos === 'before' ? 'drop-before' : dragPos === 'after' ? 'drop-after' : 'drop-inside') : '';
  
         return `
        <div
@@ -1094,7 +1074,7 @@ export default class VirtualTree {
          aria-level="${node.level + 1}"
          aria-expanded="${hasChildren ? isExpanded : ''}"
          aria-selected="${isSelected}"
-         class="flex items-center px-2 hover:bg-gray-50 cursor-pointer ${node.isMatch ? 'bg-amber-50/60' : ''} ${isSelected ? 'bg-gray-100' : ''} ${isFocused ? 'ring-1 ring-inset ring-gray-300 z-10' : ''} ${dropClass}"
+         class="flex items-center px-2 hover:bg-slate-50 cursor-pointer ${node.isMatch ? 'bg-amber-50/50' : ''} ${isSelected ? 'bg-blue-50' : ''} ${isFocused ? 'ring-1 ring-inset ring-blue-200 z-10' : ''} ${dropClass}"
          style="height: ${rowHeight}px; padding-left: ${node.level * 20 + 8}px"
          ${this.options.draggable ? 'draggable="true"' : ''}
        >
@@ -1106,7 +1086,7 @@ export default class VirtualTree {
            </div>
          ` : ''}
  
-         <div class="w-5 h-5 flex items-center justify-center mr-1">
+         <div class="tree-toggle w-5 h-5 flex items-center justify-center mr-1">
            ${isLoading
                 ? `<svg class="w-3 h-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`
                 : hasChildren
@@ -1134,7 +1114,7 @@ export default class VirtualTree {
         if (displayNodes.length === 0) {
             this.contentLayer.innerHTML = `
         <div class="flex flex-col items-center justify-center py-20 text-slate-400">
-          <p class="text-sm">검색 결과가 없습니다.</p>
+          <p class="text-sm">${this._escapeHtml(this._locale.emptyText)}</p>
         </div>
       `;
             return;
@@ -1232,13 +1212,42 @@ export default class VirtualTree {
     }
 
     // Expand node
-    expandNode(nodeId) {
-        if (!this.state.expandedIds.has(nodeId)) {
-            this.state.expandedIds.add(nodeId);
-            const node = this.findNodeById(nodeId);
-            if (node && this.options.onExpand) {
-                this.options.onExpand(node);
+    async expandNode(nodeId) {
+        if (this.state.expandedIds.has(nodeId)) return;
+
+        const node = this.findNodeById(nodeId);
+        if (!node) return;
+
+        if (this.options.lazy && node.hasChildren && !node.children) {
+            this.state.loadingIds.add(nodeId);
+            this.render();
+            try {
+                const newChildren = await this.options.onLoadData(node);
+                const updateRecursive = (list) => list.map(n => {
+                    if (n.id === nodeId) return { ...n, children: newChildren };
+                    if (n.children) return { ...n, children: updateRecursive(n.children) };
+                    return n;
+                });
+                this.state.treeData = updateRecursive(this.state.treeData);
+                this.state.expandedIds.add(nodeId);
+                if (this.options.onExpand) this.options.onExpand(node);
+                if (this.options.checkbox && this.state.checkedIds.has(nodeId)) {
+                    const checkRecursive = (children) => {
+                        children.forEach(c => {
+                            this.state.checkedIds.add(String(c.id));
+                            if (c.children) checkRecursive(c.children);
+                        });
+                    };
+                    checkRecursive(newChildren);
+                }
+                this.setState({});
+            } finally {
+                this.state.loadingIds.delete(nodeId);
+                this.setState({});
             }
+        } else {
+            this.state.expandedIds.add(nodeId);
+            if (this.options.onExpand) this.options.onExpand(node);
             this.setState({});
         }
     }

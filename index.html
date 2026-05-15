@@ -3,223 +3,360 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>High-Tree Demo</title>
+    <title>High-Tree — Virtual Tree Component</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #1e293b;
+        background: #f1f5f9;
         -webkit-font-smoothing: antialiased;
       }
 
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-      }
-
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
+      /* ── Scrollbar ─────────────────────────────────────────── */
+      .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #e5e7eb;
+        background: #cbd5e1;
         border-radius: 99px;
       }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #d1d5db;
-      }
-
+      /* ── Search highlight ──────────────────────────────────── */
       mark {
-        background: #fef9c3;
-        color: inherit;
+        background: #fef08a;
+        color: #713f12;
         border-radius: 2px;
-        padding: 0 1px;
+        padding: 0 2px;
       }
 
-      .tree-node-container {
-        will-change: transform;
-      }
+      /* ── Tree node perf hint ───────────────────────────────── */
+      .tree-node-container { will-change: transform; }
 
-      .log-entry {
-        padding: 6px 10px;
-        border-radius: 4px;
-        font-family: "SF Mono", "Fira Code", monospace;
-        font-size: 11px;
-        color: #6b7280;
-        background: #f9fafb;
-        border-left: 2px solid #e5e7eb;
-        line-height: 1.5;
-      }
+      /* ── Drop indicators ───────────────────────────────────── */
+      .drop-before  { border-top: 2px solid #3b82f6; }
+      .drop-after   { border-bottom: 2px solid #3b82f6; }
+      .drop-inside  { background-color: #eff6ff !important; }
 
-      .log-entry.expand {
-        border-left-color: #6ee7b7;
-      }
-      .log-entry.collapse {
-        border-left-color: #fcd34d;
-      }
-      .log-entry.select {
-        border-left-color: #a5b4fc;
-      }
-      .log-entry.check {
-        border-left-color: #f9a8d4;
-      }
+      /* ── Checkbox indeterminate ────────────────────────────── */
+      input[data-indeterminate="true"]:indeterminate { accent-color: #3b82f6; }
 
-      .btn {
-        padding: 5px 12px;
-        border-radius: 5px;
-        font-size: 13px;
-        font-weight: 450;
-        color: #374151;
+      /* ── Panel ─────────────────────────────────────────────── */
+      .panel {
         background: #fff;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        min-height: 40px;
+      }
+
+      .panel-head-title {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #475569;
+      }
+
+      /* ── Toolbar ────────────────────────────────────────────── */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+      }
+
+      .toolbar-sep {
+        width: 1px;
+        height: 18px;
+        background: #e2e8f0;
+        margin: 0 3px;
+        flex-shrink: 0;
+      }
+
+      /* ── Buttons ────────────────────────────────────────────── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 10px;
+        height: 28px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #334155;
+        background: #fff;
+        border: 1px solid #cbd5e1;
         cursor: pointer;
-        transition:
-          background 0.12s,
-          border-color 0.12s;
+        transition: background 80ms, border-color 80ms;
         white-space: nowrap;
+        user-select: none;
+        line-height: 1;
+        text-decoration: none;
       }
 
-      .btn:hover {
-        background: #f9fafb;
-        border-color: #d1d5db;
-      }
-      .btn:active {
-        background: #f3f4f6;
-      }
-      .btn.accent {
-        background: #111827;
+      .btn:hover  { background: #f8fafc; border-color: #94a3b8; }
+      .btn:active { background: #f1f5f9; }
+
+      .btn.primary {
+        background: #1d4ed8;
         color: #fff;
-        border-color: #111827;
+        border-color: #1d4ed8;
       }
-      .btn.accent:hover {
-        background: #1f2937;
-        border-color: #1f2937;
+      .btn.primary:hover  { background: #1e40af; border-color: #1e40af; }
+      .btn.primary:active { background: #1e3a8a; }
+
+      .btn.ghost {
+        background: transparent;
+        border-color: transparent;
+        color: #64748b;
+      }
+      .btn.ghost:hover  { background: #f1f5f9; border-color: #e2e8f0; color: #334155; }
+
+      .btn.sm {
+        height: 24px;
+        padding: 0 8px;
+        font-size: 11px;
+        border-radius: 3px;
       }
 
-      /* Indeterminate checkbox */
-      input[data-indeterminate="true"]:indeterminate {
-        accent-color: #6366f1;
+      /* ── Status badge ───────────────────────────────────────── */
+      .status-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
       }
 
-      .edit-input {
-        z-index: 10;
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: 1px solid;
       }
 
-      .drop-before {
-        border-top: 2px solid #6366f1;
+      .status-badge.sync   { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+      .status-badge.sync   .status-dot { background:#16a34a; }
+      .status-badge.worker { background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe; }
+      .status-badge.worker .status-dot { background:#7c3aed; }
+
+      /* ── Activity log ───────────────────────────────────────── */
+      .log-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 5px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 11.5px;
+        line-height: 1.5;
+        transition: background 60ms;
       }
-      .drop-after {
-        border-bottom: 2px solid #6366f1;
+
+      .log-row:hover { background: #f8fafc; }
+
+      .log-time {
+        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+        font-size: 10px;
+        color: #94a3b8;
+        flex-shrink: 0;
+        letter-spacing: 0.02em;
       }
-      .drop-inside {
-        background-color: rgba(99, 102, 241, 0.05);
+
+      .log-pip {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        margin-top: 4px;
+      }
+
+      .log-msg { color: #334155; }
+
+      /* ── Kbd ────────────────────────────────────────────────── */
+      kbd {
+        display: inline-block;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+        font-size: 10px;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-bottom-width: 2px;
+      }
+
+      /* ── App header ─────────────────────────────────────────── */
+      .app-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0 6px;
+      }
+
+      .app-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .app-brand-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+      }
+
+      .app-brand-version {
+        font-size: 10px;
+        color: #94a3b8;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        margin-top: 1px;
       }
     </style>
   </head>
 
-  <body class="bg-gray-50 min-h-screen">
-    <div class="max-w-6xl mx-auto px-6 py-10 space-y-6">
-      <!-- Header -->
-      <header class="mb-4">
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm"
-          >
-            <svg
-              class="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              />
-            </svg>
+  <body>
+    <div style="max-width:1160px; margin:0 auto; padding: 0 20px 40px;">
+
+      <!-- App header -->
+      <div class="app-header">
+        <div class="app-brand">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="5" height="5" rx="1"/>
+            <rect x="3" y="10" width="5" height="5" rx="1"/>
+            <rect x="3" y="17" width="5" height="5" rx="1"/>
+            <line x1="11" y1="5.5" x2="21" y2="5.5"/>
+            <line x1="11" y1="12.5" x2="21" y2="12.5"/>
+            <line x1="11" y1="19.5" x2="21" y2="19.5"/>
+          </svg>
+          <div>
+            <div class="app-brand-name">High-Tree</div>
+            <div class="app-brand-version">Virtual Tree Component &nbsp;·&nbsp; v1.0.4</div>
           </div>
-          <div class="flex-1">
-            <h1 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              High-Tree
-              <span id="worker-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700 border border-green-200">
-                Sync Mode
-              </span>
-            </h1>
-            <p class="text-sm text-slate-500">
-              Performance-optimized virtual tree component
-            </p>
-          </div>
+          <span id="worker-status-badge" class="status-badge sync">
+            <span class="status-dot"></span>Sync
+          </span>
         </div>
-      </header>
+        <a href="benchmark.html" class="btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          Benchmark
+        </a>
+      </div>
 
-      <!-- Main Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <!-- Left: Tree -->
-        <div class="lg:col-span-2 space-y-3">
-          <!-- Controls -->
-          <div class="flex flex-wrap gap-2">
-            <button id="btn-expand-all" class="btn">Expand all</button>
-            <button id="btn-collapse-all" class="btn">Collapse all</button>
-            <button id="btn-clear-selection" class="btn">
-              Clear selection
-            </button>
-            <button id="btn-get-checked" class="btn">Get checked</button>
-            <button id="btn-filter-folders" class="btn">Folders only</button>
-            <button id="btn-clear-filter" class="btn">Clear filter</button>
-            <button id="btn-scroll-to-last" class="btn">Scroll to node</button>
-            <button id="btn-export-state" class="btn">Export state</button>
-            <button id="btn-import-state" class="btn">Import state</button>
-            <button id="btn-add-root" class="btn accent">Add node</button>
-            <button id="btn-gen-20k" class="btn bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100">Benchmark: 20k Nodes</button>
-            <a href="benchmark.html" class="btn bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                Detailed Benchmark
-            </a>
+      <!-- Main layout -->
+      <div style="display:grid; grid-template-columns:1fr 320px; gap:16px; align-items:start;">
+
+        <!-- ── Tree panel ─────────────────────────────────────── -->
+        <div class="panel">
+          <!-- Panel header -->
+          <div class="panel-head">
+            <span class="panel-head-title">File Explorer</span>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button id="btn-export-state" class="btn sm">Export state</button>
+              <button id="btn-import-state" class="btn sm">Import state</button>
+            </div>
           </div>
 
-          <!-- Tree Component -->
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <button id="btn-expand-all" class="btn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 9l7 7 7-7"/><path d="M5 3h14"/></svg>
+              Expand All
+            </button>
+            <button id="btn-collapse-all" class="btn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 15l7-7 7 7"/><path d="M5 21h14"/></svg>
+              Collapse All
+            </button>
+            <button id="btn-clear-selection" class="btn">Clear Selection</button>
+            <button id="btn-get-checked" class="btn">Get Checked</button>
+
+            <div class="toolbar-sep"></div>
+
+            <button id="btn-filter-folders" class="btn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Folders Only
+            </button>
+            <button id="btn-clear-filter" class="btn">Clear Filter</button>
+            <button id="btn-scroll-to-last" class="btn">Scroll to Node</button>
+
+            <div class="toolbar-sep"></div>
+
+            <button id="btn-gen-20k" class="btn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              Load 20k
+            </button>
+            <button id="btn-add-root" class="btn primary">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Node
+            </button>
+          </div>
+
+          <!-- Tree mount -->
           <div id="virtual-tree-root"></div>
 
           <!-- Keyboard hints -->
-          <p class="text-xs text-gray-400">
-            <span class="font-mono bg-gray-100 px-1 rounded">↑↓</span> navigate
-            &nbsp;
-            <span class="font-mono bg-gray-100 px-1 rounded">←→</span>
-            expand/collapse &nbsp;
-            <span class="font-mono bg-gray-100 px-1 rounded">Enter</span> toggle
-            &nbsp;
-            <span class="font-mono bg-gray-100 px-1 rounded">Space</span> select
-            &nbsp;
-            <span class="font-mono bg-gray-100 px-1 rounded">Ctrl+Click</span>
-            multi-select
-          </p>
+          <div style="padding:8px 14px; border-top:1px solid #f1f5f9; background:#fafafa; display:flex; flex-wrap:wrap; gap:10px;">
+            <span style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+              <kbd>↑↓</kbd> Navigate
+            </span>
+            <span style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+              <kbd>←→</kbd> Expand/Collapse
+            </span>
+            <span style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+              <kbd>Enter</kbd> Toggle
+            </span>
+            <span style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+              <kbd>Space</kbd> Select
+            </span>
+            <span style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+              <kbd>Ctrl+Click</kbd> Multi-select
+            </span>
+          </div>
         </div>
 
-        <!-- Right: Event Log -->
-        <div class="lg:col-span-1">
-          <div
-            class="bg-white rounded-lg border border-gray-200 p-4 sticky top-6"
-          >
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-sm font-medium text-gray-700">Event log</span>
-              <button
-                id="btn-clear-log"
-                class="text-xs text-gray-400 hover:text-gray-600"
-              >
-                Clear
-              </button>
-            </div>
-            <div
-              id="event-log"
-              class="max-h-[560px] overflow-auto custom-scrollbar space-y-1"
-            >
-              <p class="text-xs text-gray-400 text-center py-10">
-                No events yet
-              </p>
+        <!-- ── Activity log panel ─────────────────────────────── -->
+        <div class="panel" style="position:sticky; top:16px;">
+          <div class="panel-head">
+            <span class="panel-head-title">Activity Log</span>
+            <button id="btn-clear-log" class="btn ghost sm">Clear</button>
+          </div>
+          <div id="event-log" class="custom-scrollbar" style="max-height:560px; overflow-y:auto;">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 16px; color:#94a3b8; gap:8px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              <p style="font-size:12px;">No events yet</p>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+
+      </div><!-- /grid -->
+    </div><!-- /container -->
 
     <script type="module">
       import VirtualTree from "./high-tree.js";
@@ -227,165 +364,200 @@
       const eventLog = document.getElementById("event-log");
       let logCount = 0;
 
+      const pipColor = {
+        expand:   "#16a34a",
+        collapse: "#d97706",
+        select:   "#3b82f6",
+        check:    "#8b5cf6",
+        default:  "#94a3b8",
+      };
+
       function addLog(message, type = "default") {
         logCount++;
-        const entry = document.createElement("div");
-        entry.className = `log-entry ${type}`;
-        entry.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
+        const color = pipColor[type] || pipColor.default;
+
+        const row = document.createElement("div");
+        row.className = "log-row";
+        row.innerHTML = `
+          <span class="log-time">${new Date().toLocaleTimeString("ko-KR", { hour12: false })}</span>
+          <span class="log-pip" style="background:${color};"></span>
+          <span class="log-msg">${message}</span>
+        `;
+
         if (logCount === 1) eventLog.innerHTML = "";
-        eventLog.insertBefore(entry, eventLog.firstChild);
-        if (logCount > 50) eventLog.lastChild?.remove();
+        eventLog.insertBefore(row, eventLog.firstChild);
+        if (logCount > 100) eventLog.lastChild?.remove();
       }
 
       document.getElementById("btn-clear-log").addEventListener("click", () => {
-        eventLog.innerHTML =
-          '<p class="text-xs text-slate-400 text-center py-10">Waiting for events...</p>';
+        eventLog.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;color:#94a3b8;gap:8px;">
+            <p style="font-size:12px;">Cleared</p>
+          </div>`;
         logCount = 0;
       });
 
       const initialData = [
-        { id: 'src', label: 'src', type: 'folder', hasChildren: true, level: 0 },
-        { id: 'assets', label: 'assets', type: 'folder', hasChildren: true, level: 0 },
-        { id: 'package.json', label: 'package.json', type: 'file', level: 0 },
-        { id: 'README.md', label: 'README.md', type: 'file', level: 0 },
-        { id: 'tsconfig.json', label: 'tsconfig.json', type: 'file', level: 0 }
+        { id: "src",          label: "src",          type: "folder", hasChildren: true, level: 0 },
+        { id: "assets",       label: "assets",       type: "folder", hasChildren: true, level: 0 },
+        { id: "package.json", label: "package.json", type: "file",   level: 0 },
+        { id: "README.md",    label: "README.md",    type: "file",   level: 0 },
+        { id: "tsconfig.json",label: "tsconfig.json",type: "file",   level: 0 },
       ];
 
-      const tree = new VirtualTree(
-        document.getElementById("virtual-tree-root"),
-        {
-          data: initialData,
-          height: 560,
-          rowHeight: 36,
-          lazy: true,
-          selectable: true,
-          multiSelect: true,
-          cascadeSelect: true,
-          checkbox: true,
-          draggable: true,
-          editable: true,
+      const tree = new VirtualTree(document.getElementById("virtual-tree-root"), {
+        data: initialData,
+        height: 520,
+        rowHeight: 34,
+        lazy: true,
+        selectable: true,
+        multiSelect: true,
+        cascadeSelect: true,
+        checkbox: true,
+        draggable: true,
+        editable: true,
 
-          onEdit: (node, newLabel, oldLabel) => {
-            addLog(`Renamed "${oldLabel}" → "${newLabel}"`);
-          },
-          onClick: (node) => {
-            addLog(`Click: ${node.label}`);
-          },
-          onExpand: (node) => {
-            addLog(`Expand: ${node.label}`, "expand");
-          },
-          onCollapse: (node) => {
-            addLog(`Collapse: ${node.label}`, "collapse");
-          },
-          onSelect: (nodes) => {
-            addLog(`Selected ${nodes.length} node(s)`, "select");
-          },
-          onCheck: (nodes, meta) => {
-            if (meta) {
-                const modeStr = meta.isWorker ? "Worker" : "Sync";
-                const badge = document.getElementById('worker-status-badge');
-                badge.textContent = `${modeStr} Mode`;
-                badge.className = `px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${meta.isWorker ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-green-100 text-green-700 border-green-200'}`;
-                
-                addLog(`Checked ${nodes.length} node(s) — [${modeStr}] ${meta.timeTaken.toFixed(2)}ms`, "check");
-            } else {
-                addLog(`Checked ${nodes.length} node(s)`, "check");
-            }
-          },
-          onDrop: (dragged, target, pos) => {
-            addLog(`Moved "${dragged.label}" ${pos} "${target.label}"`);
-          },
-          onContextMenu: (node, event) => {
-            addLog(`Right-click: ${node.label}`);
-            alert(`Context menu: ${node.label}`);
-          },
-          onLoadData: async (node) => {
-            await new Promise((r) => setTimeout(r, 400));
-            if (node.id === 'src') {
-              return [
-                { id: 'src-components', label: 'components', type: 'folder', hasChildren: true, level: 1 },
-                { id: 'src-utils', label: 'utils', type: 'folder', hasChildren: true, level: 1 },
-                { id: 'src-App.js', label: 'App.js', type: 'file', level: 1 }
-              ];
-            }
-            if (node.id === 'src-components') {
-              return [
-                { id: 'src-components-Tree.js', label: 'Tree.js', type: 'file', level: 2 },
-                { id: 'src-components-Node.js', label: 'Node.js', type: 'file', level: 2 }
-              ];
-            }
-            if (node.id === 'assets') {
-              return [
-                { id: 'assets-images', label: 'images', type: 'folder', hasChildren: true, level: 1 },
-                { id: 'assets-fonts', label: 'fonts', type: 'folder', hasChildren: true, level: 1 }
-              ];
-            }
-            return [];
-          },
-          renderNode: (node, searchTerm) => {
-            const highlight = (text) => {
-              if (!searchTerm) return text;
-              const regex = new RegExp(`(${searchTerm})`, "gi");
-              return text.replace(regex, '<mark class="bg-indigo-100 text-indigo-900 rounded-px p-0.5">$1</mark>');
-            };
-            
-            const isFolder = node.children || node.hasChildren;
-            
-            return `
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        ${isFolder 
-                            ? '<svg class="w-4 h-4 text-indigo-500/80 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' 
-                            : '<svg class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
-                        }
-                        <span class="text-sm text-slate-700 truncate font-medium">${highlight(node.label)}</span>
-                    </div>
-                `.trim();
-          },
+        onEdit: (node, newLabel, oldLabel) => {
+          addLog(`Renamed "${oldLabel}" → "${newLabel}"`);
         },
-      );
+        onClick: (node) => {
+          addLog(`Click: ${node.label}`);
+        },
+        onExpand: (node) => {
+          addLog(`Expand: ${node.label}`, "expand");
+        },
+        onCollapse: (node) => {
+          addLog(`Collapse: ${node.label}`, "collapse");
+        },
+        onSelect: (nodes) => {
+          addLog(`Selected ${nodes.length} node(s)`, "select");
+        },
+        onCheck: (nodes, meta) => {
+          const badge = document.getElementById("worker-status-badge");
+          if (meta) {
+            const isWorker = meta.isWorker;
+            badge.className = `status-badge ${isWorker ? "worker" : "sync"}`;
+            badge.innerHTML = `<span class="status-dot"></span>${isWorker ? "Worker" : "Sync"}`;
+            addLog(
+              `Checked ${nodes.length} node(s) · [${isWorker ? "Worker" : "Sync"}] ${meta.timeTaken.toFixed(2)}ms`,
+              "check"
+            );
+          } else {
+            addLog(`Checked ${nodes.length} node(s)`, "check");
+          }
+        },
+        onDrop: (dragged, target, pos) => {
+          addLog(`Moved "${dragged.label}" ${pos} "${target.label}"`);
+        },
+        onContextMenu: (node, event) => {
+          addLog(`Right-click: ${node.label}`);
+          alert(`Context menu: ${node.label}`);
+        },
+        onLoadData: async (node) => {
+          await new Promise((r) => setTimeout(r, 400));
+          if (node.id === "src") {
+            return [
+              { id: "src-components", label: "components", type: "folder", hasChildren: true, level: 1 },
+              { id: "src-utils",      label: "utils",      type: "folder", hasChildren: true, level: 1 },
+              { id: "src-App.js",     label: "App.js",     type: "file",   level: 1 },
+            ];
+          }
+          if (node.id === "src-components") {
+            return [
+              { id: "src-components-Tree.js", label: "Tree.js", type: "file", level: 2 },
+              { id: "src-components-Node.js", label: "Node.js", type: "file", level: 2 },
+            ];
+          }
+          if (node.id === "assets") {
+            return [
+              { id: "assets-images", label: "images", type: "folder", hasChildren: true, level: 1 },
+              { id: "assets-fonts",  label: "fonts",  type: "folder", hasChildren: true, level: 1 },
+            ];
+          }
+          return [];
+        },
+        renderNode: (node, searchTerm) => {
+          const highlight = (text) => {
+            if (!searchTerm) return text;
+            const regex = new RegExp(`(${searchTerm})`, "gi");
+            return text.replace(regex, "<mark>$1</mark>");
+          };
 
-      document
-        .getElementById("btn-expand-all")
-        .addEventListener("click", async () => {
-          await tree.expandAll();
-          addLog("Expanded all", "expand");
-        });
-      document
-        .getElementById("btn-collapse-all")
-        .addEventListener("click", () => {
-          tree.collapseAll();
-          addLog("Collapsed all", "collapse");
-        });
-      document
-        .getElementById("btn-clear-selection")
-        .addEventListener("click", () => {
-          tree.clearSelection();
-          addLog("Selection cleared", "select");
-        });
-      document
-        .getElementById("btn-get-checked")
-        .addEventListener("click", () => {
-          const checked = tree.getCheckedNodes();
-          addLog(`${checked.length} node(s) checked`, "check");
-          alert(
-            checked.length
-              ? `Checked:\n${checked.map((n) => n.label).join("\n")}`
-              : "No nodes checked",
-          );
-        });
-      document
-        .getElementById("btn-filter-folders")
-        .addEventListener("click", () => {
-          tree.setFilter((node) => node.type === "folder");
-          addLog("Filter: folders only");
-        });
-      document
-        .getElementById("btn-clear-filter")
-        .addEventListener("click", () => {
-          tree.clearFilter();
-          document.getElementById("tree-search").value = "";
-          addLog("Filter cleared");
-        });
+          const isFolder = node.children || node.hasChildren;
+          const iconColor = isFolder ? "#4f80c4" : "#94a3b8";
+
+          const icon = isFolder
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="${iconColor}" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+            : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+          return `
+            <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;">
+              ${icon}
+              <span style="font-size:13px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${highlight(node.label)}</span>
+            </div>
+          `.trim();
+        },
+      });
+
+      /* ── Controls ──────────────────────────────────────────── */
+      document.getElementById("btn-expand-all").addEventListener("click", async () => {
+        await tree.expandAll();
+        addLog("Expanded all", "expand");
+      });
+
+      document.getElementById("btn-collapse-all").addEventListener("click", () => {
+        tree.collapseAll();
+        addLog("Collapsed all", "collapse");
+      });
+
+      document.getElementById("btn-clear-selection").addEventListener("click", () => {
+        tree.clearSelection();
+        addLog("Selection cleared", "select");
+      });
+
+      document.getElementById("btn-get-checked").addEventListener("click", () => {
+        const checked = tree.getCheckedNodes();
+        addLog(`${checked.length} node(s) checked`, "check");
+        alert(
+          checked.length
+            ? `Checked:\n${checked.map((n) => n.label).join("\n")}`
+            : "No nodes checked"
+        );
+      });
+
+      document.getElementById("btn-filter-folders").addEventListener("click", () => {
+        tree.setFilter((node) => node.type === "folder");
+        addLog("Filter: folders only");
+      });
+
+      document.getElementById("btn-clear-filter").addEventListener("click", () => {
+        tree.clearFilter();
+        const search = document.getElementById("tree-search");
+        if (search) search.value = "";
+        addLog("Filter cleared");
+      });
+
+      document.getElementById("btn-scroll-to-last").addEventListener("click", () => {
+        tree.scrollToNode("root-9-child-9");
+        addLog("Scroll to: root-9-child-9");
+      });
+
+      let savedState = null;
+
+      document.getElementById("btn-export-state").addEventListener("click", () => {
+        savedState = tree.exportState();
+        addLog("State exported");
+      });
+
+      document.getElementById("btn-import-state").addEventListener("click", () => {
+        if (savedState) {
+          tree.importState(savedState);
+          addLog("State imported", "select");
+        } else {
+          alert("Export state first.");
+        }
+      });
+
       document.getElementById("btn-add-root").addEventListener("click", () => {
         const id = `new-${Date.now()}`;
         tree.addNode(null, {
@@ -397,57 +569,35 @@
         });
         addLog(`Added: ${id}`);
       });
-      document
-        .getElementById("btn-scroll-to-last")
-        .addEventListener("click", () => {
-          tree.scrollToNode("root-9-child-9");
-          addLog("Scroll to: root-9-child-9");
-        });
 
-      let savedState = null;
-      document
-        .getElementById("btn-export-state")
-        .addEventListener("click", () => {
-          savedState = tree.exportState();
-          addLog("State exported");
-        });
-      document
-        .getElementById("btn-import-state")
-        .addEventListener("click", () => {
-          if (savedState) {
-            tree.importState(savedState);
-            addLog("State imported", "select");
-          } else alert("Export state first.");
-        });
-      
       document.getElementById("btn-gen-20k").addEventListener("click", () => {
         const largeData = [];
-        addLog("Generating 20,000 nodes... please wait.", "expand");
-        
+        addLog("Generating 20,000 nodes…", "expand");
+
         for (let i = 0; i < 2000; i++) {
           const rootId = `root-${i}`;
           largeData.push({
             id: rootId,
             label: `Folder ${i}`,
-            type: 'folder',
+            type: "folder",
             hasChildren: true,
             level: 0,
             children: Array.from({ length: 9 }, (_, j) => ({
               id: `${rootId}-child-${j}`,
               label: `File ${i}-${j}`,
-              type: 'file',
-              level: 1
-            }))
+              type: "file",
+              level: 1,
+            })),
           });
         }
-        
-        tree.setData(largeData);
-        document.getElementById('worker-status-badge').textContent = "Worker Mode";
-        document.getElementById('worker-status-badge').className = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 border-purple-200";
-        addLog(`Successfully loaded 20,000 nodes. Using Worker Mode.`, "select");
-      });
 
-      // Tree instance initialized
+        tree.setData(largeData);
+
+        const badge = document.getElementById("worker-status-badge");
+        badge.className = "status-badge worker";
+        badge.innerHTML = `<span class="status-dot"></span>Worker`;
+        addLog("Loaded 20,000 nodes — Worker Mode active", "select");
+      });
     </script>
   </body>
 </html>
