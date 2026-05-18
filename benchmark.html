@@ -3,385 +3,600 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>High-Tree vs Standard Tree Benchmark</title>
+    <title>High-Tree — Performance Benchmark</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
       body {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background-color: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
         color: #1e293b;
-      }
-      .card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        border: 1px solid #e2e8f0;
-      }
-      .metric-card {
-        padding: 1rem;
-        border-radius: 8px;
         background: #f1f5f9;
-        border-left: 4px solid #6366f1;
+        -webkit-font-smoothing: antialiased;
       }
-      .tree-container {
-        height: 600px;
-        overflow: auto;
+
+      .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+      /* ── Panel ─────────────────────────────────────────────── */
+      .panel {
+        background: #fff;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: white;
+        border-radius: 6px;
+        overflow: hidden;
       }
-      /* Standard Tree CSS */
-      .std-tree-node {
-        padding-left: 20px;
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        min-height: 40px;
+      }
+
+      .panel-head-title {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #475569;
+      }
+
+      /* ── Buttons ────────────────────────────────────────────── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 10px;
+        height: 28px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #334155;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        cursor: pointer;
+        transition: background 80ms, border-color 80ms;
+        white-space: nowrap;
         user-select: none;
+        line-height: 1;
+        text-decoration: none;
       }
+      .btn:hover  { background: #f8fafc; border-color: #94a3b8; }
+      .btn:active { background: #f1f5f9; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .btn.primary {
+        background: #1d4ed8;
+        color: #fff;
+        border-color: #1d4ed8;
+      }
+      .btn.primary:hover  { background: #1e40af; border-color: #1e40af; }
+      .btn.primary:disabled { background: #93c5fd; border-color: #93c5fd; }
+
+      .btn.lg {
+        height: 32px;
+        padding: 0 14px;
+        font-size: 13px;
+      }
+
+      /* ── Metric card ────────────────────────────────────────── */
+      .metric {
+        padding: 10px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+      }
+
+      .metric-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin-bottom: 4px;
+      }
+
+      .metric-value {
+        font-size: 20px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #0f172a;
+        line-height: 1.2;
+        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      }
+
+      .metric-value.fast  { color: #16a34a; }
+      .metric-value.slow  { color: #dc2626; }
+
+      /* ── Status badge ───────────────────────────────────────── */
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #94a3b8;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        flex-shrink: 0;
+      }
+
+      .status.running .status-dot { background: #f59e0b; animation: pulse 1s infinite; }
+      .status.done    .status-dot { background: #16a34a; }
+      .status.running { color: #92400e; }
+      .status.done    { color: #15803d; }
+
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+      /* ── Standard tree ──────────────────────────────────────── */
+      .std-tree-node  { padding-left: 18px; user-select: none; }
       .std-tree-label {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         padding: 4px 8px;
         cursor: pointer;
-        font-size: 14px;
-        border-radius: 4px;
+        font-size: 13px;
+        border-radius: 3px;
+        color: #334155;
       }
-      .std-tree-label:hover {
-        background: #f1f5f9;
+      .std-tree-label:hover    { background: #f8fafc; }
+      .std-tree-children       { display: none; }
+      .std-tree-children.expanded { display: block; }
+      .highlight { background: #fef9c3; }
+
+      /* ── Tree viewport ──────────────────────────────────────── */
+      .tree-viewport {
+        height: 560px;
+        overflow: auto;
+        background: #fff;
       }
-      .std-tree-children {
-        display: none;
+
+      /* ── Comparison row ─────────────────────────────────────── */
+      .compare-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 12px;
       }
-      .std-tree-children.expanded {
-        display: block;
+      .compare-row:last-child { border-bottom: none; }
+      .compare-label { color: #64748b; font-weight: 500; }
+      .compare-values { display: flex; gap: 24px; }
+      .compare-val { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; }
+      .compare-val.std  { color: #dc2626; }
+      .compare-val.high { color: #16a34a; }
+
+      /* ── Info section ───────────────────────────────────────── */
+      .info-item {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.6;
       }
-      .highlight {
-        background-color: #fef08a;
+      .info-item:last-child { border-bottom: none; }
+      .info-item-title { font-weight: 600; color: #0f172a; white-space: nowrap; }
+
+      /* ── App header ─────────────────────────────────────────── */
+      .app-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0 6px;
       }
     </style>
   </head>
-  <body class="p-6 lg:p-10">
-    <div class="max-w-7xl mx-auto space-y-8">
-      <!-- Header -->
-      <header class="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Performance Benchmark</h1>
-          <p class="text-slate-500 mt-1">Comparing <span class="font-bold text-indigo-600">High-Tree</span> (Virtualization + Worker) vs Standard Recursive DOM</p>
+
+  <body>
+    <div style="max-width:1200px; margin:0 auto; padding: 0 20px 40px;">
+
+      <!-- App header -->
+      <div class="app-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <a href="/" class="btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            Back
+          </a>
+          <div style="width:1px; height:16px; background:#e2e8f0;"></div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          <div>
+            <div style="font-size:15px; font-weight:700; color:#0f172a; letter-spacing:-0.02em; line-height:1.2;">Performance Benchmark</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:500;">High-Tree vs Standard Recursive DOM</div>
+          </div>
         </div>
-        <div class="flex items-center gap-4 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-          <label class="text-sm font-medium text-slate-700">Data Size:</label>
-          <select id="data-size-select" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2">
-            <option value="1000">1,000 Nodes</option>
-            <option value="5000">5,000 Nodes</option>
-            <option value="10000" selected>10,000 Nodes</option>
-            <option value="20000">20,000 Nodes</option>
-            <option value="50000">50,000 Nodes (Warning: Standard Tree may lag)</option>
-            <option value="100000">100,000 Nodes (Warning: Standard Tree will crash)</option>
+
+        <!-- Controls -->
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:12px; color:#64748b; font-weight:500;">Dataset size</label>
+          <select id="data-size-select" style="height:28px; padding:0 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; color:#1e293b; background:#fff; cursor:pointer;">
+            <option value="1000">1,000 nodes</option>
+            <option value="5000">5,000 nodes</option>
+            <option value="10000" selected>10,000 nodes</option>
+            <option value="20000">20,000 nodes</option>
+            <option value="50000">50,000 nodes ⚠ Standard may lag</option>
+            <option value="100000">100,000 nodes ⚠ Standard will crash</option>
           </select>
-          <button id="btn-run-benchmark" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md">
+          <button id="btn-run-benchmark" class="btn primary lg">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Run Benchmark
           </button>
         </div>
-      </header>
-
-      <!-- Results Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Standard Tree Section -->
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-red-500"></span>
-              Standard Tree
-            </h2>
-            <span id="std-status" class="text-xs font-medium text-slate-400">Idle</span>
-          </div>
-          <div class="card p-4 space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-              <div class="metric-card border-red-500">
-                <div class="text-xs text-slate-500 uppercase font-bold tracking-wider">Initial Load</div>
-                <div id="std-load-time" class="text-xl font-mono">-- ms</div>
-              </div>
-              <div class="metric-card border-red-500">
-                <div class="text-xs text-slate-500 uppercase font-bold tracking-wider">DOM Nodes</div>
-                <div id="std-dom-nodes" class="text-xl font-mono">--</div>
-              </div>
-            </div>
-            <div id="std-tree-container" class="tree-container p-2">
-              <div class="flex items-center justify-center h-full text-slate-300">
-                Click Run to Load
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- High-Tree Section -->
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-green-500"></span>
-              High-Tree (Virtual)
-            </h2>
-            <span id="high-status" class="text-xs font-medium text-slate-400">Idle</span>
-          </div>
-          <div class="card p-4 space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-              <div class="metric-card border-green-500">
-                <div class="text-xs text-slate-500 uppercase font-bold tracking-wider">Initial Load</div>
-                <div id="high-load-time" class="text-xl font-mono">-- ms</div>
-              </div>
-              <div class="metric-card border-green-500">
-                <div class="text-xs text-slate-500 uppercase font-bold tracking-wider">DOM Nodes</div>
-                <div id="high-dom-nodes" class="text-xl font-mono">--</div>
-              </div>
-            </div>
-            <div id="high-tree-root" class="tree-container border-none p-0">
-               <div class="flex items-center justify-center h-full text-slate-300">
-                Click Run to Load
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <!-- Action Benchmarks -->
-      <div class="card p-6">
-        <h3 class="text-lg font-bold mb-4">Interactive Performance</h3>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="space-y-3">
-            <button id="btn-bench-expand" class="w-full bg-slate-800 text-white p-3 rounded-lg font-medium hover:bg-slate-700 transition-colors">Expand All Folders</button>
-            <div class="flex justify-between text-sm px-1">
-              <span>Std: <span id="std-expand-time" class="font-mono">--</span> ms</span>
-              <span>High: <span id="high-expand-time" class="font-mono">--</span> ms</span>
+      <!-- Main grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+        <!-- Standard Tree -->
+        <div class="panel">
+          <div class="panel-head">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="width:8px; height:8px; border-radius:50%; background:#ef4444; flex-shrink:0;"></span>
+              <span class="panel-head-title">Standard Tree</span>
+            </div>
+            <span id="std-status" class="status">
+              <span class="status-dot"></span>Idle
+            </span>
+          </div>
+
+          <!-- Metrics -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 14px; border-bottom:1px solid #e2e8f0;">
+            <div class="metric">
+              <div class="metric-label">Initial Load</div>
+              <div id="std-load-time" class="metric-value">—</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">DOM Nodes</div>
+              <div id="std-dom-nodes" class="metric-value">—</div>
             </div>
           </div>
-          <div class="space-y-3">
-             <div class="relative">
-                <input id="bench-search" type="text" placeholder="Search benchmark..." class="w-full p-3 pr-20 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                <button id="btn-bench-search" class="absolute right-2 top-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-600">Search</button>
-             </div>
-            <div class="flex justify-between text-sm px-1">
-              <span>Std: <span id="std-search-time" class="font-mono">--</span> ms</span>
-              <span>High: <span id="high-search-time" class="font-mono">--</span> ms</span>
-            </div>
-          </div>
-          <div class="space-y-3">
-            <button id="btn-bench-check" class="w-full bg-slate-100 text-slate-700 border border-slate-200 p-3 rounded-lg font-medium hover:bg-slate-200 transition-colors">Bulk Check (Cascade)</button>
-            <div class="flex justify-between text-sm px-1">
-              <span>Std: <span id="std-check-time" class="font-mono">--</span> ms</span>
-              <span>High: <span id="high-check-time" class="font-mono">--</span> ms</span>
+
+          <!-- Tree -->
+          <div id="std-tree-container" class="tree-viewport custom-scrollbar" style="padding:6px;">
+            <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-size:12px;">
+              Run benchmark to load
             </div>
           </div>
         </div>
+
+        <!-- High-Tree -->
+        <div class="panel">
+          <div class="panel-head">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="width:8px; height:8px; border-radius:50%; background:#16a34a; flex-shrink:0;"></span>
+              <span class="panel-head-title">High-Tree (Virtual)</span>
+            </div>
+            <span id="high-status" class="status">
+              <span class="status-dot"></span>Idle
+            </span>
+          </div>
+
+          <!-- Metrics -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 14px; border-bottom:1px solid #e2e8f0;">
+            <div class="metric">
+              <div class="metric-label">Initial Load</div>
+              <div id="high-load-time" class="metric-value">—</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">DOM Nodes</div>
+              <div id="high-dom-nodes" class="metric-value">—</div>
+            </div>
+          </div>
+
+          <!-- Tree -->
+          <div id="high-tree-root" class="tree-viewport">
+            <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-size:12px;">
+              Run benchmark to load
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Conclusion -->
-      <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-6 text-indigo-900">
-        <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Why is High-Tree faster?
-        </h3>
-        <ul class="list-disc list-inside space-y-1 text-sm opacity-90">
-            <li><strong>DOM Virtualization:</strong> Only renders the nodes currently visible in the viewport. Standard trees render every single node, causing memory bloat and slow layouts.</li>
-            <li><strong>Flat State Architecture:</strong> Uses a flat array representation for rendering, avoiding expensive recursive DOM traversals.</li>
-            <li><strong>Web Worker Offloading:</strong> Heavy operations like tree flattening and cascade selection are performed in a background thread, keeping the UI responsive.</li>
-            <li><strong>CSS-Grid Layout:</strong> Leverages modern layout engines for efficient positioning of virtual rows.</li>
-        </ul>
+      <!-- Bottom row -->
+      <div style="display:grid; grid-template-columns:1fr 280px; gap:16px;">
+
+        <!-- Interactive benchmarks -->
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-head-title">Interactive Performance</span>
+            <span id="comparison-summary" style="font-size:11px; color:#94a3b8;"></span>
+          </div>
+
+          <div style="padding:14px 16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+
+            <!-- Expand All -->
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Expand All</div>
+              <button id="btn-bench-expand" class="btn" style="width:100%; justify-content:center; margin-bottom:10px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg>
+                Run
+              </button>
+              <div class="compare-row">
+                <span class="compare-label">Standard</span>
+                <span id="std-expand-time" class="compare-val std">—</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">High-Tree</span>
+                <span id="high-expand-time" class="compare-val high">—</span>
+              </div>
+            </div>
+
+            <!-- Search -->
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Search Filter</div>
+              <div style="display:flex; gap:4px; margin-bottom:10px;">
+                <input id="bench-search" type="text" placeholder="e.g. File 5" style="flex:1; height:28px; padding:0 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; color:#1e293b; min-width:0;">
+                <button id="btn-bench-search" class="btn primary">Go</button>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">Standard</span>
+                <span id="std-search-time" class="compare-val std">—</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">High-Tree</span>
+                <span id="high-search-time" class="compare-val high">—</span>
+              </div>
+            </div>
+
+            <!-- Bulk Check -->
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Bulk Check (Cascade)</div>
+              <button id="btn-bench-check" class="btn" style="width:100%; justify-content:center; margin-bottom:10px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Run
+              </button>
+              <div class="compare-row">
+                <span class="compare-label">Standard</span>
+                <span id="std-check-time" class="compare-val std">—</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">High-Tree</span>
+                <span id="high-check-time" class="compare-val high">—</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Why faster -->
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-head-title">Why is High-Tree faster?</span>
+          </div>
+          <div style="padding:12px 14px;">
+            <div class="info-item">
+              <div>
+                <div class="info-item-title">DOM Virtualization</div>
+                Only renders the nodes visible in the viewport. Standard trees render every node upfront.
+              </div>
+            </div>
+            <div class="info-item">
+              <div>
+                <div class="info-item-title">Flat State Architecture</div>
+                Uses a flat array for rendering, avoiding expensive recursive DOM traversals.
+              </div>
+            </div>
+            <div class="info-item">
+              <div>
+                <div class="info-item-title">Web Worker Offloading</div>
+                Tree flattening and cascade selection run in a background thread, keeping the UI free.
+              </div>
+            </div>
+            <div class="info-item">
+              <div>
+                <div class="info-item-title">Differential Rendering</div>
+                Re-renders only rows whose state has changed, not the entire visible window.
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <script type="module">
       import VirtualTree from "./high-tree.js";
 
-      const stdTreeContainer = document.getElementById('std-tree-container');
-      const highTreeRoot = document.getElementById('high-tree-root');
-      const dataSizeSelect = document.getElementById('data-size-select');
-      const btnRunBenchmark = document.getElementById('btn-run-benchmark');
+      const stdTreeContainer = document.getElementById("std-tree-container");
+      const highTreeRoot     = document.getElementById("high-tree-root");
+      const dataSizeSelect   = document.getElementById("data-size-select");
+      const btnRun           = document.getElementById("btn-run-benchmark");
 
       let currentData = [];
       let highTreeInstance = null;
 
       function generateData(count) {
         const data = [];
-        const foldersCount = Math.floor(count / 10);
-        for (let i = 0; i < foldersCount; i++) {
+        const folders = Math.floor(count / 10);
+        for (let i = 0; i < folders; i++) {
           const rootId = `node-${i}`;
           data.push({
             id: rootId,
             label: `Folder ${i}`,
-            type: 'folder',
+            type: "folder",
             hasChildren: true,
             level: 0,
             children: Array.from({ length: 9 }, (_, j) => ({
               id: `${rootId}-child-${j}`,
               label: `File ${i}-${j}`,
-              type: 'file',
-              level: 1
-            }))
+              type: "file",
+              level: 1,
+            })),
           });
         }
         return data;
       }
 
-      // --- Standard Tree Implementation ---
+      function setStatus(id, state, text) {
+        const el = document.getElementById(id);
+        el.className = `status ${state}`;
+        el.innerHTML = `<span class="status-dot"></span>${text}`;
+      }
+
       function renderStandardTree(nodes, container) {
-        const ul = document.createElement('ul');
-        ul.className = 'std-tree-root';
-        
-        nodes.forEach(node => {
-          const li = document.createElement('li');
-          li.className = 'std-tree-node';
-          li.setAttribute('data-id', node.id);
-          
-          const label = document.createElement('div');
-          label.className = 'std-tree-label';
-          
-          const icon = node.type === 'folder' ? '📁' : '📄';
-          label.innerHTML = `<span>${icon}</span> <span>${node.label}</span>`;
-          
+        const ul = document.createElement("ul");
+        ul.className = "std-tree-root";
+        nodes.forEach((node) => {
+          const li = document.createElement("li");
+          li.className = "std-tree-node";
+          li.setAttribute("data-id", node.id);
+
+          const label = document.createElement("div");
+          label.className = "std-tree-label";
+
+          const isFolder = node.type === "folder";
+          const icon = isFolder
+            ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="#4f80c4" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+            : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+          label.innerHTML = `${icon}<span>${node.label}</span>`;
           li.appendChild(label);
-          
-          if (node.children && node.children.length > 0) {
-            const childrenContainer = document.createElement('div');
-            childrenContainer.className = 'std-tree-children';
-            renderStandardTree(node.children, childrenContainer);
-            li.appendChild(childrenContainer);
-            
-            label.addEventListener('click', (e) => {
+
+          if (node.children?.length) {
+            const childWrap = document.createElement("div");
+            childWrap.className = "std-tree-children";
+            renderStandardTree(node.children, childWrap);
+            li.appendChild(childWrap);
+            label.addEventListener("click", (e) => {
               e.stopPropagation();
-              childrenContainer.classList.toggle('expanded');
+              childWrap.classList.toggle("expanded");
             });
           }
-          
           ul.appendChild(li);
         });
-        
         container.appendChild(ul);
       }
 
       async function runBenchmark() {
         const size = parseInt(dataSizeSelect.value);
-        btnRunBenchmark.disabled = true;
-        btnRunBenchmark.textContent = 'Generating...';
-        
-        // Give UI time to update
-        await new Promise(r => setTimeout(r, 100));
-        
+        btnRun.disabled = true;
+        btnRun.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/></svg> Running…`;
+
+        await new Promise((r) => setTimeout(r, 80));
         currentData = generateData(size);
-        
-        // --- Benchmark Standard Tree ---
-        stdTreeContainer.innerHTML = '';
-        document.getElementById('std-status').textContent = 'Loading...';
-        document.getElementById('std-load-time').textContent = 'Calculating...';
-        
+
+        // Standard Tree
+        stdTreeContainer.innerHTML = "";
+        setStatus("std-status", "running", "Loading…");
+        document.getElementById("std-load-time").textContent = "…";
+        document.getElementById("std-dom-nodes").textContent = "…";
+
         const stdStart = performance.now();
         renderStandardTree(currentData, stdTreeContainer);
-        const stdEnd = performance.now();
-        
-        const stdTime = (stdEnd - stdStart).toFixed(2);
-        document.getElementById('std-load-time').textContent = `${stdTime} ms`;
-        document.getElementById('std-dom-nodes').textContent = stdTreeContainer.querySelectorAll('*').length.toLocaleString();
-        document.getElementById('std-status').textContent = 'Done';
+        const stdTime = (performance.now() - stdStart).toFixed(2);
 
-        // --- Benchmark High-Tree ---
-        highTreeRoot.innerHTML = '';
-        document.getElementById('high-status').textContent = 'Loading...';
-        document.getElementById('high-load-time').textContent = 'Calculating...';
-        
+        document.getElementById("std-load-time").className = "metric-value slow";
+        document.getElementById("std-load-time").textContent = `${stdTime} ms`;
+        document.getElementById("std-dom-nodes").textContent =
+          stdTreeContainer.querySelectorAll("*").length.toLocaleString();
+        setStatus("std-status", "done", "Done");
+
+        // High-Tree
+        highTreeRoot.innerHTML = "";
+        setStatus("high-status", "running", "Loading…");
+        document.getElementById("high-load-time").textContent = "…";
+        document.getElementById("high-dom-nodes").textContent = "…";
+
         const highStart = performance.now();
         highTreeInstance = new VirtualTree(highTreeRoot, {
           data: currentData,
-          height: 600,
-          rowHeight: 36,
+          height: 560,
+          rowHeight: 34,
           selectable: true,
           checkbox: true,
           cascadeSelect: true,
           useWorker: true,
           renderNode: (node) => {
-             const isFolder = node.type === 'folder';
-             return `
-                <div class="flex items-center gap-2">
-                    <span>${isFolder ? '📁' : '📄'}</span>
-                    <span class="text-sm">${node.label}</span>
-                </div>
-             `;
-          }
+            const isFolder = node.type === "folder";
+            const icon = isFolder
+              ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="#4f80c4" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+              : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+            return `<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;">${icon}<span style="font-size:13px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${node.label}</span></div>`;
+          },
         });
-        const highEnd = performance.now();
-        
-        const highTime = (highEnd - highStart).toFixed(2);
-        document.getElementById('high-load-time').textContent = `${highTime} ms`;
-        // In virtual tree, DOM nodes are only for visible rows + skeleton
+        const highTime = (performance.now() - highStart).toFixed(2);
+
+        document.getElementById("high-load-time").className = "metric-value fast";
+        document.getElementById("high-load-time").textContent = `${highTime} ms`;
+
         setTimeout(() => {
-            document.getElementById('high-dom-nodes').textContent = highTreeRoot.querySelectorAll('*').length.toLocaleString();
-            document.getElementById('high-status').textContent = 'Done';
-            btnRunBenchmark.disabled = false;
-            btnRunBenchmark.textContent = 'Run Benchmark';
+          document.getElementById("high-dom-nodes").textContent =
+            highTreeRoot.querySelectorAll("*").length.toLocaleString();
+          setStatus("high-status", "done", "Done");
+          btnRun.disabled = false;
+          btnRun.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Benchmark`;
+
+          const ratio = (stdTime / highTime).toFixed(1);
+          document.getElementById("comparison-summary").textContent =
+            `High-Tree was ${ratio}× faster on this run`;
         }, 500);
       }
 
-      btnRunBenchmark.addEventListener('click', runBenchmark);
+      btnRun.addEventListener("click", runBenchmark);
 
-      // --- Interaction Benchmarks ---
-      
-      document.getElementById('btn-bench-expand').addEventListener('click', async () => {
-          // Std Tree
-          const stdStart = performance.now();
-          const children = stdTreeContainer.querySelectorAll('.std-tree-children');
-          children.forEach(c => c.classList.add('expanded'));
-          const stdEnd = performance.now();
-          document.getElementById('std-expand-time').textContent = (stdEnd - stdStart).toFixed(2);
-          
-          // High Tree
-          const highStart = performance.now();
-          await highTreeInstance.expandAll();
-          const highEnd = performance.now();
-          document.getElementById('high-expand-time').textContent = (highEnd - highStart).toFixed(2);
+      document.getElementById("btn-bench-expand").addEventListener("click", async () => {
+        const stdStart = performance.now();
+        stdTreeContainer.querySelectorAll(".std-tree-children").forEach((c) => c.classList.add("expanded"));
+        document.getElementById("std-expand-time").textContent = `${(performance.now() - stdStart).toFixed(2)} ms`;
+
+        const highStart = performance.now();
+        await highTreeInstance?.expandAll();
+        document.getElementById("high-expand-time").textContent = `${(performance.now() - highStart).toFixed(2)} ms`;
       });
 
-      document.getElementById('btn-bench-search').addEventListener('click', () => {
-          const term = document.getElementById('bench-search').value;
-          
-          // Std Tree (Manual implementation for benchmark)
-          const stdStart = performance.now();
-          const labels = stdTreeContainer.querySelectorAll('.std-tree-label');
-          labels.forEach(label => {
-              const text = label.textContent;
-              if (term && text.toLowerCase().includes(term.toLowerCase())) {
-                  label.classList.add('highlight');
-                  // Expand parents
-                  let parent = label.parentElement.closest('.std-tree-children');
-                  while(parent) {
-                      parent.classList.add('expanded');
-                      parent = parent.parentElement.closest('.std-tree-children');
-                  }
-              } else {
-                  label.classList.remove('highlight');
-              }
-          });
-          const stdEnd = performance.now();
-          document.getElementById('std-search-time').textContent = (stdEnd - stdStart).toFixed(2);
-          
-          // High Tree
-          const highStart = performance.now();
-          highTreeInstance.setSearch(term);
-          const highEnd = performance.now();
-          document.getElementById('high-search-time').textContent = (highEnd - highStart).toFixed(2);
-      });
+      document.getElementById("btn-bench-search").addEventListener("click", () => {
+        const term = document.getElementById("bench-search").value;
 
-      document.getElementById('btn-bench-check').addEventListener('click', async () => {
-          // Cascade check simulation for std tree
-          const stdStart = performance.now();
-          const nodes = stdTreeContainer.querySelectorAll('.std-tree-node');
-          nodes.forEach(n => n.setAttribute('data-checked', 'true'));
-          const stdEnd = performance.now();
-          document.getElementById('std-check-time').textContent = (stdEnd - stdStart).toFixed(2);
-          
-          // High Tree (Actual cascade check)
-          const highStart = performance.now();
-          if (currentData.length > 0) {
-              await highTreeInstance.handleCheckboxClick(currentData[0].id);
+        const stdStart = performance.now();
+        stdTreeContainer.querySelectorAll(".std-tree-label").forEach((label) => {
+          const text = label.textContent;
+          if (term && text.toLowerCase().includes(term.toLowerCase())) {
+            label.classList.add("highlight");
+            let parent = label.parentElement.closest(".std-tree-children");
+            while (parent) {
+              parent.classList.add("expanded");
+              parent = parent.parentElement.closest(".std-tree-children");
+            }
+          } else {
+            label.classList.remove("highlight");
           }
-          const highEnd = performance.now();
-          document.getElementById('high-check-time').textContent = (highEnd - highStart).toFixed(2);
+        });
+        document.getElementById("std-search-time").textContent = `${(performance.now() - stdStart).toFixed(2)} ms`;
+
+        const highStart = performance.now();
+        highTreeInstance?.setSearch?.(term);
+        document.getElementById("high-search-time").textContent = `${(performance.now() - highStart).toFixed(2)} ms`;
+      });
+
+      document.getElementById("btn-bench-check").addEventListener("click", async () => {
+        const stdStart = performance.now();
+        stdTreeContainer.querySelectorAll(".std-tree-node").forEach((n) => n.setAttribute("data-checked", "true"));
+        document.getElementById("std-check-time").textContent = `${(performance.now() - stdStart).toFixed(2)} ms`;
+
+        if (currentData.length > 0) {
+          const highStart = performance.now();
+          await highTreeInstance?.handleCheckboxClick(currentData[0].id);
+          document.getElementById("high-check-time").textContent = `${(performance.now() - highStart).toFixed(2)} ms`;
+        }
       });
     </script>
   </body>
